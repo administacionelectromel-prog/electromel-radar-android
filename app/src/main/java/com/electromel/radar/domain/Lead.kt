@@ -1,10 +1,13 @@
 package com.electromel.radar.domain
 
+import kotlinx.serialization.Serializable
+
 /**
  * Modelo de dominio — equivalente 1:1 del objeto lead de la PWA.
  * Mismos nombres de campos para que import/export JSON sea directo
  * entre la PWA y la app nativa.
  */
+@Serializable
 data class Lead(
     val id: String,
     var nombre: String,
@@ -33,4 +36,5 @@ data class Lead(
     var historial: List<EventoHistorial> = emptyList()
 )
 
+@Serializable
 data class EventoHistorial(val fecha: String, val accion: String)
