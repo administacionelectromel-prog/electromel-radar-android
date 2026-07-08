@@ -2,6 +2,7 @@ package com.electromel.radar.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,7 +21,8 @@ import com.electromel.radar.domain.IutEngine
 @Composable
 fun TerrenoScreen(
     state: TerrenoState,
-    onImportarClick: () -> Unit
+    onImportarClick: () -> Unit,
+    onLeadClick: (String) -> Unit = {}
 ) {
     Column(
         Modifier.fillMaxSize().background(RadarColors.bg).padding(12.dp)
@@ -53,20 +55,21 @@ fun TerrenoScreen(
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.leads, key = { it.lead.id }) { LeadCard(it) }
+                items(state.leads, key = { it.lead.id }) { LeadCard(it, onLeadClick) }
             }
         }
     }
 }
 
 @Composable
-private fun LeadCard(item: LeadUi) {
+private fun LeadCard(item: LeadUi, onLeadClick: (String) -> Unit) {
     val prioColor = RadarColors.prioridadColor(item.prioridad.nivel)
 
     Column(
         Modifier.fillMaxWidth()
             .background(RadarColors.bgCard, RoundedCornerShape(10.dp))
             .border(1.dp, RadarColors.border, RoundedCornerShape(10.dp))
+            .clickable { onLeadClick(item.lead.id) }
             .padding(12.dp)
     ) {
         // Barra de prioridad táctica

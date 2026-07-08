@@ -62,7 +62,9 @@ class MainActivity : ComponentActivity() {
                     RadarApp(
                         state = state,
                         onImportarClick = { picker.launch("application/json") },
-                        onLeadClick = { /* Fase 4: abrir ficha del lead */ }
+                        onLeadClick = { id -> vm.abrirLead(id) },
+                        onCerrarLead = { vm.cerrarLead() },
+                        onCambiarEstado = { id, estado -> vm.cambiarEstado(id, estado) }
                     )
                 }
             }

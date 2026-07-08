@@ -21,7 +21,8 @@ data class TerrenoState(
     val cargando: Boolean = true,
     val mensaje: String = "",
     val userLat: Double? = null,
-    val userLon: Double? = null
+    val userLon: Double? = null,
+    val leadSeleccionado: LeadUi? = null
 )
 
 /**
@@ -61,6 +62,31 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             }
     }
 
+    fun abrirLead(id: String) {
+        val ui = _state.value.leads.find { it.lead.id == id }
+        _state.value = _state.value.copy(leadSeleccionado = ui)
+    }
+
+    fun cerrarLead() {
+        _state.value = _state.value.copy(leadSeleccionado = null)
+    }
+
+    /** Cambia el estado del lead, persiste, y recalcula prioridad/orden. */
+    fun cambiarEstado(id: String, nuevoEstado: String) {
+        val lead = store.byId(id) ?: return
+        val actualizado = lead.copy(
+            estado = nuevoEstado,
+            historial = lead.historial + EventoHistorial(
+                fecha = java.time.Instant.now().toString(),
+                accion = "Estado → $nuevoEstado"
+            )
+        )
+        viewModelScope.launch {
+            store.upsert(actualizado)
+            recomputar()
+        }
+    }
+
     fun setUbicacion(lat: Double, lon: Double) {
         _state.value = _state.value.copy(userLat = lat, userLon = lon)
     }
@@ -72,11 +98,15 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             .map { LeadUi(it, IutEngine.calcular(it), PrioridadEngine.calcular(it, ahora)) }
             .sortedWith(compareBy<LeadUi> { it.prioridad.nivel.ordinal }.thenByDescending { it.iut })
         val prev = _state.value
+        val selRefrescado = prev.leadSeleccionado?.let { sel ->
+            ui.find { it.lead.id == sel.lead.id }
+        }
         _state.value = TerrenoState(
             leads = ui,
             cargando = false,
             userLat = prev.userLat,
             userLon = prev.userLon,
+            leadSeleccionado = selRefrescado,
             mensaje = when {
                 ui.isNotEmpty() && msg.isNotEmpty() -> msg
                 ui.isEmpty() && store.count() == 0  -> "Importá el JSON exportado desde la PWA para ver tus leads."

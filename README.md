@@ -1,4 +1,4 @@
-# ⚡ ELECTROMEL RADAR — Android nativo (Fase 3)
+# ⚡ ELECTROMEL RADAR — Android nativo (Fase 4)
 
 Kotlin + Jetpack Compose. Puerto del motor de dominio de la PWA.
 
@@ -22,6 +22,16 @@ Kotlin + Jetpack Compose. Puerto del motor de dominio de la PWA.
 La firma está fijada en el repo (`app/debug.keystore`), así que cada APK
 nueva se instala ARRIBA de la anterior sin desinstalar ni perder datos.
 
+## Novedad Fase 4 — ficha del lead + acciones nativas
+Tocá un lead (en la lista o en el mapa) y se abre su ficha con:
+- 💬 WhatsApp — abre la app con el mensaje precargado (Intent nativo)
+- 📞 Llamar — abre el marcador con el número cargado
+- 🧭 Navegar — abre Google Maps guiándote hasta el negocio
+- Cambiar estado — el lead se reclasifica y se reordena solo, persistido
+
+Los Intents nativos abren directo la app correcta, más fluido que los
+enlaces web wa.me/tel: de la PWA.
+
 ## Novedad Fase 3 — mapa nativo + GPS
 - Pestañas LISTA / MAPA arriba
 - Mapa osmdroid con tus leads como pines coloreados por prioridad
@@ -44,7 +54,12 @@ la volvés a abrir, y siguen ahí. Ya no hay que reimportar cada vez.
    Cada card muestra el IUT calculado por el motor nativo.
 
 ## Roadmap de fases
-1. **Fase 1**: pantalla Terreno (lista + prioridad táctica) con datos en memoria
-2. **Fase 2**: Room (persistencia) + import del JSON exportado desde la PWA
-3. **Fase 3**: mapa osmdroid + GPS
-4. **Fase 4**: búsqueda OSM/Google + campañas WhatsApp (Intents nativos)
+1. ✅ **Fase 1**: pantalla Terreno (lista + prioridad táctica)
+2. ✅ **Fase 2**: Room (persistencia) + import del JSON de la PWA
+3. ✅ **Fase 3**: mapa osmdroid + GPS
+4. ✅ **Fase 4**: ficha del lead + acciones nativas (WhatsApp/llamar/navegar)
+
+### Próximo (Fase 5)
+- Búsqueda de negocios OSM/Google desde la app nativa
+- Captura rápida de leads en terreno con el GPS
+- Exportar de vuelta a JSON para sincronizar con la PWA

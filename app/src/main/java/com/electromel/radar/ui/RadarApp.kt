@@ -18,7 +18,9 @@ import androidx.compose.ui.unit.sp
 fun RadarApp(
     state: TerrenoState,
     onImportarClick: () -> Unit,
-    onLeadClick: (String) -> Unit
+    onLeadClick: (String) -> Unit,
+    onCerrarLead: () -> Unit,
+    onCambiarEstado: (String, String) -> Unit
 ) {
     var tab by remember { mutableStateOf(0) }   // 0 = lista, 1 = mapa
     var centrarUser by remember { mutableStateOf(0) }
@@ -36,7 +38,7 @@ fun RadarApp(
 
         Box(Modifier.weight(1f)) {
             when (tab) {
-                0 -> TerrenoScreen(state = state, onImportarClick = onImportarClick)
+                0 -> TerrenoScreen(state = state, onImportarClick = onImportarClick, onLeadClick = onLeadClick)
                 1 -> {
                     MapaView(
                         leads = state.leads,
@@ -66,6 +68,15 @@ fun RadarApp(
                 }
             }
         }
+    }
+
+    // Ficha del lead seleccionado (overlay)
+    state.leadSeleccionado?.let { sel ->
+        LeadFicha(
+            item = sel,
+            onCerrar = onCerrarLead,
+            onCambiarEstado = { nuevo -> onCambiarEstado(sel.lead.id, nuevo) }
+        )
     }
 }
 
