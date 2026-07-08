@@ -4,6 +4,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.electromel.radar.domain.EventoHistorial
 import com.electromel.radar.domain.Lead
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 /**
@@ -43,8 +45,8 @@ data class LeadEntity(
         id = id, nombre = nombre, rubro = rubro, tipo = tipo,
         telefono = telefono, direccion = direccion, zona = zona, notas = notas,
         lat = lat, lon = lon, fuente = fuente, estado = estado,
-        equipos = JSON.decodeFromString(equiposJson),
-        tags = JSON.decodeFromString(tagsJson),
+        equipos = JSON.decodeFromString<List<String>>(equiposJson),
+        tags = JSON.decodeFromString<List<String>>(tagsJson),
         web = web, nivel = nivel, prioridad = prioridad,
         googleId = googleId, osmId = osmId, rating = rating,
         intentosContacto = intentosContacto, cicloMantenimiento = cicloMantenimiento,
@@ -59,13 +61,13 @@ data class LeadEntity(
             id = l.id, nombre = l.nombre, rubro = l.rubro, tipo = l.tipo,
             telefono = l.telefono, direccion = l.direccion, zona = l.zona, notas = l.notas,
             lat = l.lat, lon = l.lon, fuente = l.fuente, estado = l.estado,
-            equiposJson = JSON.encodeToString(l.equipos),
-            tagsJson = JSON.encodeToString(l.tags),
+            equiposJson = JSON.encodeToString<List<String>>(l.equipos),
+            tagsJson = JSON.encodeToString<List<String>>(l.tags),
             web = l.web, nivel = l.nivel, prioridad = l.prioridad,
             googleId = l.googleId, osmId = l.osmId, rating = l.rating,
             intentosContacto = l.intentosContacto, cicloMantenimiento = l.cicloMantenimiento,
             seguimientoFecha = l.seguimientoFecha, creado = l.creado,
-            historialJson = JSON.encodeToString(l.historial)
+            historialJson = JSON.encodeToString<List<EventoHistorial>>(l.historial)
         )
     }
 }

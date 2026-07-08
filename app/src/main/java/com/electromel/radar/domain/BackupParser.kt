@@ -1,6 +1,7 @@
 package com.electromel.radar.domain
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 /**
