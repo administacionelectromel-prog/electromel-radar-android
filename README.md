@@ -1,4 +1,4 @@
-# ⚡ ELECTROMEL RADAR — Android nativo (Fase 1)
+# ⚡ ELECTROMEL RADAR — Android nativo (Fase 2)
 
 Kotlin + Jetpack Compose. Puerto del motor de dominio de la PWA.
 
@@ -22,7 +22,11 @@ Kotlin + Jetpack Compose. Puerto del motor de dominio de la PWA.
 La firma está fijada en el repo (`app/debug.keystore`), así que cada APK
 nueva se instala ARRIBA de la anterior sin desinstalar ni perder datos.
 
-## Cómo usar la Fase 1
+## Novedad Fase 2 — persistencia
+Los leads importados se guardan en el celular (Room). Cerrás la app,
+la volvés a abrir, y siguen ahí. Ya no hay que reimportar cada vez.
+
+## Cómo usar
 1. En la PWA: pestaña STATS → EXPORTAR / SINCRONIZAR → JSON → se baja `electromel_xxx.json`
 2. Pasá ese archivo al celular (o exportalo desde el mismo celular)
 3. En la APK: tocá **⬇ IMPORTAR** → elegí el JSON

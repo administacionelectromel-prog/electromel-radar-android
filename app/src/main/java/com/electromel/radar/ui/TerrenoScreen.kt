@@ -42,7 +42,11 @@ fun TerrenoScreen(
             ) { Text("⬇ IMPORTAR", fontWeight = FontWeight.Bold) }
         }
 
-        if (state.leads.isEmpty()) {
+        if (state.cargando) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = RadarColors.accent)
+            }
+        } else if (state.leads.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(state.mensaje, color = RadarColors.textDim,
                      fontSize = 14.sp, modifier = Modifier.padding(24.dp))

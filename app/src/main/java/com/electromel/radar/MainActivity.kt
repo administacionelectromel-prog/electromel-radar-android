@@ -10,12 +10,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.electromel.radar.ui.*
 
 /**
- * Fase 1: pantalla Terreno con datos reales importados del backup JSON de la PWA.
+ * Fase 2: los leads se persisten en Room. Al abrir la app, se cargan solos.
+ * El import guarda en disco; ya no hay que reimportar en cada sesión.
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,7 +29,6 @@ class MainActivity : ComponentActivity() {
                 val vm: TerrenoViewModel = viewModel()
                 val state by vm.state.collectAsState()
 
-                // Selector de archivo del sistema (SAF) — devuelve un Uri
                 val picker = rememberLauncherForActivityResult(
                     ActivityResultContracts.GetContent()
                 ) { uri: Uri? ->
@@ -40,7 +39,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Surface(color = Color(0xFF04080F)) {
+                Surface(color = RadarColors.bg) {
                     TerrenoScreen(
                         state = state,
                         onImportarClick = { picker.launch("application/json") }
