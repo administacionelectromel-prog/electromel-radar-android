@@ -36,11 +36,13 @@ fun RadarApp(
         ) {
             TabBtn("📋 LISTA", tab == 0) { tab = 0 }
             TabBtn("🗺️ MAPA", tab == 1) { tab = 1 }
+            TabBtn("⚡ HOY", tab == 2) { tab = 2 }
         }
 
         Box(Modifier.weight(1f)) {
             when (tab) {
                 0 -> TerrenoScreen(state = state, onImportarClick = onImportarClick, onLeadClick = onLeadClick)
+                2 -> HoyScreen(state = state, onLeadClick = onLeadClick)
                 1 -> {
                     MapaView(
                         leads = state.leads,

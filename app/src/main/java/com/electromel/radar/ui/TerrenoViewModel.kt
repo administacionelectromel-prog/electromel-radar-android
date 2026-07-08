@@ -22,7 +22,11 @@ data class TerrenoState(
     val mensaje: String = "",
     val userLat: Double? = null,
     val userLon: Double? = null,
-    val leadSeleccionado: LeadUi? = null
+    val leadSeleccionado: LeadUi? = null,
+    val objetivosDia: List<LeadUi> = emptyList(),
+    val diaSeguimientos: Int = 0,
+    val diaUrgentes: Int = 0,
+    val diaSinContacto: Int = 0
 )
 
 /**
@@ -91,6 +95,10 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = _state.value.copy(userLat = lat, userLon = lon)
     }
 
+    private fun parseIsoMs(iso: String): Long? = try {
+        java.time.Instant.parse(if (iso.endsWith("Z") || iso.contains("+")) iso else iso + "Z").toEpochMilli()
+    } catch (e: Exception) { null }
+
     private fun recomputar(msg: String = "") {
         val ahora = System.currentTimeMillis()
         val ui = store.all()
@@ -98,6 +106,21 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             .map { LeadUi(it, IutEngine.calcular(it), PrioridadEngine.calcular(it, ahora)) }
             .sortedWith(compareBy<LeadUi> { it.prioridad.nivel.ordinal }.thenByDescending { it.iut })
         val prev = _state.value
+
+        // Objetivos del día (DiaEngine) + resumen
+        val objetivos = DiaEngine.generarObjetivos(
+            store.all(), prev.userLat, prev.userLon, 8, ahora
+        ).mapNotNull { (lead, _) -> ui.find { it.lead.id == lead.id } }
+
+        val seguHoy = store.all().count {
+            it.seguimientoFecha?.let { s -> parseIsoMs(s)?.let { m -> m <= ahora } } == true &&
+            it.estado != "descartado"
+        }
+        val urgentes = store.all().count { it.estado == "urgente" }
+        val sinContacto = store.all().count {
+            it.estado == "no-contactado" && it.telefono.filter { c -> c.isDigit() }.length >= 6
+        }
+
         val selRefrescado = prev.leadSeleccionado?.let { sel ->
             ui.find { it.lead.id == sel.lead.id }
         }
@@ -107,6 +130,10 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             userLat = prev.userLat,
             userLon = prev.userLon,
             leadSeleccionado = selRefrescado,
+            objetivosDia = objetivos,
+            diaSeguimientos = seguHoy,
+            diaUrgentes = urgentes,
+            diaSinContacto = sinContacto,
             mensaje = when {
                 ui.isNotEmpty() && msg.isNotEmpty() -> msg
                 ui.isEmpty() && store.count() == 0  -> "Importá el JSON exportado desde la PWA para ver tus leads."
