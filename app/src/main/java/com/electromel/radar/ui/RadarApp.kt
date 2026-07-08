@@ -2,6 +2,8 @@ package com.electromel.radar.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,10 +24,10 @@ fun RadarApp(
     onCerrarLead: () -> Unit,
     onCambiarEstado: (String, String) -> Unit
 ) {
-    var tab by remember { mutableStateOf(0) }   // 0 = lista, 1 = mapa
+    var tab by remember { mutableStateOf(1) }   // arranca en MAPA (1); lista = 0
     var centrarUser by remember { mutableStateOf(0) }
 
-    Column(Modifier.fillMaxSize().background(RadarColors.bg)) {
+    Column(Modifier.fillMaxSize().background(RadarColors.bg).statusBarsPadding().navigationBarsPadding()) {
 
         // Selector de pestañas
         Row(

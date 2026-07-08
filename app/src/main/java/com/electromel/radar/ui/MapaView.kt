@@ -41,6 +41,9 @@ fun MapaView(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
+            zoomController.setVisibility(
+                org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER
+            )
             controller.setZoom(13.0)
             controller.setCenter(GeoPoint(-38.9516, -68.0591)) // Neuquén
         }
