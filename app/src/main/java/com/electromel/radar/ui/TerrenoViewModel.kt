@@ -19,7 +19,9 @@ data class LeadUi(
 data class TerrenoState(
     val leads: List<LeadUi> = emptyList(),
     val cargando: Boolean = true,
-    val mensaje: String = ""
+    val mensaje: String = "",
+    val userLat: Double? = null,
+    val userLon: Double? = null
 )
 
 /**
@@ -59,15 +61,22 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             }
     }
 
+    fun setUbicacion(lat: Double, lon: Double) {
+        _state.value = _state.value.copy(userLat = lat, userLon = lon)
+    }
+
     private fun recomputar(msg: String = "") {
         val ahora = System.currentTimeMillis()
         val ui = store.all()
             .filter { it.estado != "descartado" }
             .map { LeadUi(it, IutEngine.calcular(it), PrioridadEngine.calcular(it, ahora)) }
             .sortedWith(compareBy<LeadUi> { it.prioridad.nivel.ordinal }.thenByDescending { it.iut })
+        val prev = _state.value
         _state.value = TerrenoState(
             leads = ui,
             cargando = false,
+            userLat = prev.userLat,
+            userLon = prev.userLon,
             mensaje = when {
                 ui.isNotEmpty() && msg.isNotEmpty() -> msg
                 ui.isEmpty() && store.count() == 0  -> "Importá el JSON exportado desde la PWA para ver tus leads."

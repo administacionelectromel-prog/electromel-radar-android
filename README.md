@@ -1,4 +1,4 @@
-# ⚡ ELECTROMEL RADAR — Android nativo (Fase 2)
+# ⚡ ELECTROMEL RADAR — Android nativo (Fase 3)
 
 Kotlin + Jetpack Compose. Puerto del motor de dominio de la PWA.
 
@@ -21,6 +21,15 @@ Kotlin + Jetpack Compose. Puerto del motor de dominio de la PWA.
 
 La firma está fijada en el repo (`app/debug.keystore`), así que cada APK
 nueva se instala ARRIBA de la anterior sin desinstalar ni perder datos.
+
+## Novedad Fase 3 — mapa nativo + GPS
+- Pestañas LISTA / MAPA arriba
+- Mapa osmdroid con tus leads como pines coloreados por prioridad
+  (rojo=hoy, amarillo=semana, verde=revisita, azul=sin urgencia)
+- Punto azul = tu ubicación (GPS del sistema, sin Google Play Services)
+- Botón ◎ para centrar el mapa en donde estás
+- osmdroid cachea los tiles en disco solo → offline real de sistema
+- La primera vez pide permiso de ubicación
 
 ## Novedad Fase 2 — persistencia
 Los leads importados se guardan en el celular (Room). Cerrás la app,
