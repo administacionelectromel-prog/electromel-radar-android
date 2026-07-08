@@ -57,7 +57,7 @@ fun MapaView(
                 position = GeoPoint(lat, lon)
                 title = item.lead.nombre
                 snippet = "IUT ${item.iut} · ${item.prioridad.label}"
-                icon = puntoColor(prioridadColorInt(item.prioridad.nivel))
+                icon = puntoColor(context, prioridadColorInt(item.prioridad.nivel))
                 setOnMarkerClickListener { _, _ ->
                     onLeadClick(item.lead.id); true
                 }
@@ -70,7 +70,7 @@ fun MapaView(
             val yo = Marker(map).apply {
                 position = GeoPoint(userLat, userLon)
                 title = "Tu ubicación"
-                icon = puntoColor(AndroidColor.parseColor("#2D8FFF"), 44)
+                icon = puntoColor(context, AndroidColor.parseColor("#2D8FFF"), 44)
             }
             map.overlays.add(yo)
         }
@@ -94,11 +94,19 @@ private fun prioridadColorInt(nivel: PrioridadEngine.Nivel): Int = when (nivel) 
     PrioridadEngine.Nivel.BAJA     -> AndroidColor.parseColor("#4A6888")
 }
 
-/** Genera un pin circular del color dado, sin depender de recursos drawable. */
-private fun puntoColor(color: Int, size: Int = 36): GradientDrawable =
-    GradientDrawable().apply {
+/** Genera un pin circular del color dado como BitmapDrawable con bounds reales.
+ *  osmdroid usa intrinsicWidth/Height para posicionar el marcador; un
+ *  GradientDrawable con setSize() deja esos valores en -1 y el pin no se dibuja.
+ *  Rasterizarlo a bitmap garantiza dimensiones intrínsecas válidas. */
+private fun puntoColor(ctx: android.content.Context, color: Int, size: Int = 36): android.graphics.drawable.Drawable {
+    val gd = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
         setColor(color)
         setStroke(4, AndroidColor.WHITE)
-        setSize(size, size)
     }
+    val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bmp)
+    gd.setBounds(0, 0, size, size)
+    gd.draw(canvas)
+    return android.graphics.drawable.BitmapDrawable(ctx.resources, bmp)
+}
