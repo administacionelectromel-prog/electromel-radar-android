@@ -64,7 +64,8 @@ class MainActivity : ComponentActivity() {
                         onImportarClick = { picker.launch("application/json") },
                         onLeadClick = { id -> vm.abrirLead(id) },
                         onCerrarLead = { vm.cerrarLead() },
-                        onCambiarEstado = { id, estado -> vm.cambiarEstado(id, estado) }
+                        onCambiarEstado = { id, estado -> vm.cambiarEstado(id, estado) },
+                        onGenerarRuta = { vm.generarRuta() }
                     )
                 }
             }

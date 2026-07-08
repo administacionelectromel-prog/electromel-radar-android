@@ -26,7 +26,9 @@ data class TerrenoState(
     val objetivosDia: List<LeadUi> = emptyList(),
     val diaSeguimientos: Int = 0,
     val diaUrgentes: Int = 0,
-    val diaSinContacto: Int = 0
+    val diaSinContacto: Int = 0,
+    val ruta: List<LeadUi> = emptyList(),
+    val rutaDistanciaKm: Double = 0.0
 )
 
 /**
@@ -91,6 +93,16 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Genera la ruta óptima con los objetivos del día (RutaEngine). */
+    fun generarRuta() {
+        val s = _state.value
+        val leadsObjetivo = s.objetivosDia.map { it.lead }
+        val optimizada = RutaEngine.optimizar(leadsObjetivo, s.userLat, s.userLon)
+        val dist = RutaEngine.distanciaTotal(optimizada, s.userLat, s.userLon)
+        val rutaUi = optimizada.mapNotNull { lead -> s.leads.find { it.lead.id == lead.id } }
+        _state.value = s.copy(ruta = rutaUi, rutaDistanciaKm = dist)
+    }
+
     fun setUbicacion(lat: Double, lon: Double) {
         _state.value = _state.value.copy(userLat = lat, userLon = lon)
     }
@@ -134,6 +146,8 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             diaSeguimientos = seguHoy,
             diaUrgentes = urgentes,
             diaSinContacto = sinContacto,
+            ruta = prev.ruta.mapNotNull { r -> ui.find { it.lead.id == r.lead.id } },
+            rutaDistanciaKm = prev.rutaDistanciaKm,
             mensaje = when {
                 ui.isNotEmpty() && msg.isNotEmpty() -> msg
                 ui.isEmpty() && store.count() == 0  -> "Importá el JSON exportado desde la PWA para ver tus leads."

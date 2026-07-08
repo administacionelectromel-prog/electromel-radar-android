@@ -22,7 +22,8 @@ fun RadarApp(
     onImportarClick: () -> Unit,
     onLeadClick: (String) -> Unit,
     onCerrarLead: () -> Unit,
-    onCambiarEstado: (String, String) -> Unit
+    onCambiarEstado: (String, String) -> Unit,
+    onGenerarRuta: () -> Unit
 ) {
     var tab by remember { mutableStateOf(1) }   // arranca en MAPA (1); lista = 0
     var centrarUser by remember { mutableStateOf(0) }
@@ -37,12 +38,14 @@ fun RadarApp(
             TabBtn("📋 LISTA", tab == 0) { tab = 0 }
             TabBtn("🗺️ MAPA", tab == 1) { tab = 1 }
             TabBtn("⚡ HOY", tab == 2) { tab = 2 }
+            TabBtn("🧭 RUTA", tab == 3) { tab = 3 }
         }
 
         Box(Modifier.weight(1f)) {
             when (tab) {
                 0 -> TerrenoScreen(state = state, onImportarClick = onImportarClick, onLeadClick = onLeadClick)
                 2 -> HoyScreen(state = state, onLeadClick = onLeadClick)
+                3 -> RutaScreen(state = state, onGenerarRuta = onGenerarRuta, onLeadClick = onLeadClick)
                 1 -> {
                     MapaView(
                         leads = state.leads,
