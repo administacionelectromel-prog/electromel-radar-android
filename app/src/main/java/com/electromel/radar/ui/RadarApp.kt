@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 
 /**
  * Contenedor principal: alterna entre la LISTA de terreno y el MAPA.
@@ -30,10 +31,13 @@ fun RadarApp(
 
     Column(Modifier.fillMaxSize().background(RadarColors.bg).statusBarsPadding().navigationBarsPadding()) {
 
-        // Selector de pestañas
+        // Selector de pestañas — zIndex alto para quedar SOBRE el MapView
+        // nativo (osmdroid captura toques de su área via AndroidView)
         Row(
-            Modifier.fillMaxWidth().background(RadarColors.bgCard).padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Modifier.fillMaxWidth().zIndex(10f).background(RadarColors.bgCard)
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             TabBtn("📋 LISTA", tab == 0) { tab = 0 }
             TabBtn("🗺️ MAPA", tab == 1) { tab = 1 }
