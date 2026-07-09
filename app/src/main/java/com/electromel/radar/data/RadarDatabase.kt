@@ -5,9 +5,10 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [LeadEntity::class], version = 1, exportSchema = false)
+@Database(entities = [LeadEntity::class, ConfigEntity::class], version = 2, exportSchema = false)
 abstract class RadarDatabase : RoomDatabase() {
     abstract fun leadDao(): LeadDao
+    abstract fun configDao(): ConfigDao
 
     companion object {
         @Volatile private var INSTANCE: RadarDatabase? = null
@@ -18,7 +19,7 @@ abstract class RadarDatabase : RoomDatabase() {
                     context.applicationContext,
                     RadarDatabase::class.java,
                     "radar.db"
-                ).build().also { INSTANCE = it }
+                ).fallbackToDestructiveMigration().build().also { INSTANCE = it }
             }
     }
 }

@@ -8,7 +8,7 @@ import com.electromel.radar.domain.LeadRepository
  * y sincroniza con Room. La UI habla con este Store, nunca con el DAO
  * directo — misma barrera que el Store de la PWA.
  */
-class LeadStore(private val dao: LeadDao) {
+class LeadStore(private val dao: LeadDao, private val configDao: ConfigDao) {
 
     private val repo = LeadRepository()
 
@@ -58,5 +58,13 @@ class LeadStore(private val dao: LeadDao) {
     suspend fun clear() {
         repo.clear()
         dao.clear()
+    }
+
+    // ── Configuración key-value ──
+    suspend fun getConfig(): Map<String, String> =
+        configDao.getAll().associate { it.clave to it.valor }
+
+    suspend fun setConfig(clave: String, valor: String) {
+        configDao.set(ConfigEntity(clave, valor))
     }
 }

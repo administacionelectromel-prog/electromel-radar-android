@@ -1,6 +1,8 @@
 package com.electromel.radar.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -24,7 +26,10 @@ fun RadarApp(
     onLeadClick: (String) -> Unit,
     onCerrarLead: () -> Unit,
     onCambiarEstado: (String, String) -> Unit,
-    onGenerarRuta: () -> Unit
+    onGenerarRuta: () -> Unit,
+    onGuardarConfig: (String, String, String, String) -> Unit,
+    onCapturar: (String, String, List<String>, List<String>, String) -> Unit,
+    onExportar: (String, com.electromel.radar.domain.ExportEngine.Filtro) -> Unit
 ) {
     var tab by remember { mutableStateOf(1) }   // arranca en MAPA (1); lista = 0
     var centrarUser by remember { mutableStateOf(0) }
@@ -35,6 +40,7 @@ fun RadarApp(
         // nativo (osmdroid captura toques de su área via AndroidView)
         Row(
             Modifier.fillMaxWidth().zIndex(10f).background(RadarColors.bgCard)
+                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -43,6 +49,10 @@ fun RadarApp(
             TabBtn("🗺️ MAPA", tab == 1) { tab = 1 }
             TabBtn("⚡ HOY", tab == 2) { tab = 2 }
             TabBtn("🧭 RUTA", tab == 3) { tab = 3 }
+            TabBtn("📊 STATS", tab == 4) { tab = 4 }
+            TabBtn("➕ CAPT", tab == 5) { tab = 5 }
+            TabBtn("⬇ EXP", tab == 6) { tab = 6 }
+            TabBtn("⚙️ CFG", tab == 7) { tab = 7 }
         }
 
         Box(Modifier.weight(1f)) {
@@ -50,6 +60,16 @@ fun RadarApp(
                 0 -> TerrenoScreen(state = state, onImportarClick = onImportarClick, onLeadClick = onLeadClick)
                 2 -> HoyScreen(state = state, onLeadClick = onLeadClick)
                 3 -> RutaScreen(state = state, onGenerarRuta = onGenerarRuta, onLeadClick = onLeadClick)
+                4 -> StatsScreen(state = state, onLeadClick = onLeadClick)
+                5 -> CapturaScreen(tieneGps = state.userLat != null, onGuardar = onCapturar)
+                6 -> ExportarScreen(state = state, onExportar = onExportar, onImportar = onImportarClick)
+                7 -> ConfigScreen(
+                        googleKey = state.googleKey,
+                        msgPrimero = state.msgPrimero,
+                        msgSeguimiento = state.msgSeguimiento,
+                        msgCierre = state.msgCierre,
+                        onGuardar = onGuardarConfig
+                    )
                 1 -> {
                     MapaView(
                         leads = state.leads,
@@ -92,10 +112,9 @@ fun RadarApp(
 }
 
 @Composable
-private fun RowScope.TabBtn(label: String, activo: Boolean, onClick: () -> Unit) {
+private fun TabBtn(label: String, activo: Boolean, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier.weight(1f),
         colors = ButtonDefaults.buttonColors(
             containerColor = if (activo) RadarColors.accent else RadarColors.bgPanel,
             contentColor = if (activo) RadarColors.bg else RadarColors.textDim

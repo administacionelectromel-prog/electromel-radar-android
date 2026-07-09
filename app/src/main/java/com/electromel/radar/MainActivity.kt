@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.electromel.radar.ui.*
+import com.electromel.radar.domain.ExportEngine
 
 /**
  * Fase 3: mapa nativo (osmdroid) + GPS (LocationManager del sistema).
@@ -65,7 +66,18 @@ class MainActivity : ComponentActivity() {
                         onLeadClick = { id -> vm.abrirLead(id) },
                         onCerrarLead = { vm.cerrarLead() },
                         onCambiarEstado = { id, estado -> vm.cambiarEstado(id, estado) },
-                        onGenerarRuta = { vm.generarRuta() }
+                        onGenerarRuta = { vm.generarRuta() },
+                        onGuardarConfig = { k, p1, p2, p3 -> vm.guardarConfig(k, p1, p2, p3) },
+                        onCapturar = { nom, tipo, eq, tags, tel -> vm.capturarLead(nom, tipo, eq, tags, tel) },
+                        onExportar = { formato, filtro ->
+                            val leads = ExportEngine.filtrar(state.leads.map { it.lead }, filtro)
+                            val (contenido, archivo, mime) = when (formato) {
+                                "json" -> Triple(ExportEngine.toJson(leads), "electromel_leads.json", "application/json")
+                                "csv"  -> Triple(ExportEngine.toCsv(leads), "electromel_leads.csv", "text/csv")
+                                else   -> Triple(ExportEngine.toTxt(leads), "electromel_contactos.txt", "text/plain")
+                            }
+                            ExportShare.compartir(this@MainActivity, contenido, archivo, mime)
+                        }
                     )
                 }
             }

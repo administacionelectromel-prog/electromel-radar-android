@@ -28,7 +28,14 @@ data class TerrenoState(
     val diaUrgentes: Int = 0,
     val diaSinContacto: Int = 0,
     val ruta: List<LeadUi> = emptyList(),
-    val rutaDistanciaKm: Double = 0.0
+    val rutaDistanciaKm: Double = 0.0,
+    val statsResumen: StatsEngine.Resumen = StatsEngine.Resumen(0,0,0,0,0,0),
+    val statsConversion: List<StatsEngine.ConversionRubro> = emptyList(),
+    val statsRevisitas: List<StatsEngine.Revisita> = emptyList(),
+    val googleKey: String = "",
+    val msgPrimero: String = "",
+    val msgSeguimiento: String = "",
+    val msgCierre: String = ""
 )
 
 /**
@@ -37,13 +44,15 @@ data class TerrenoState(
  */
 class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val store = LeadStore(RadarDatabase.get(app).leadDao())
+    private val db = RadarDatabase.get(app)
+    private val store = LeadStore(db.leadDao(), db.configDao())
     private val _state = MutableStateFlow(TerrenoState())
     val state: StateFlow<TerrenoState> = _state
 
     init {
         viewModelScope.launch {
             store.cargar()
+            cargarConfig()
             recomputar()
         }
     }
@@ -93,6 +102,44 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private suspend fun cargarConfig() {
+        val cfg = store.getConfig()
+        _state.value = _state.value.copy(
+            googleKey = cfg["googleKey"] ?: "",
+            msgPrimero = cfg["msgPrimero"] ?: Mensajes.primerContacto(Lead(id="", nombre="{nombre}")),
+            msgSeguimiento = cfg["msgSeguimiento"] ?: Mensajes.seguimiento(Lead(id="", nombre="{nombre}")),
+            msgCierre = cfg["msgCierre"] ?: Mensajes.cierre(Lead(id="", nombre="{nombre}"))
+        )
+    }
+
+    fun guardarConfig(key: String, primero: String, seguimiento: String, cierre: String) {
+        viewModelScope.launch {
+            store.setConfig("googleKey", key)
+            store.setConfig("msgPrimero", primero)
+            store.setConfig("msgSeguimiento", seguimiento)
+            store.setConfig("msgCierre", cierre)
+            _state.value = _state.value.copy(
+                googleKey = key, msgPrimero = primero,
+                msgSeguimiento = seguimiento, msgCierre = cierre
+            )
+        }
+    }
+
+    /** Captura un lead en terreno usando el GPS actual. */
+    fun capturarLead(nombre: String, tipo: String, equipos: List<String>, tags: List<String>, tel: String) {
+        val s = _state.value
+        val lead = CapturaEngine.construir(
+            nombre = nombre, tipo = tipo, equipos = equipos, tags = tags, telefono = tel,
+            lat = s.userLat, lon = s.userLon,
+            idGenerado = java.util.UUID.randomUUID().toString(),
+            ahoraIso = java.time.Instant.now().toString()
+        )
+        viewModelScope.launch {
+            store.upsert(lead)
+            recomputar("Capturado: " + lead.nombre)
+        }
+    }
+
     /** Genera la ruta óptima con los objetivos del día (RutaEngine). */
     fun generarRuta() {
         val s = _state.value
@@ -129,6 +176,9 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             it.estado != "descartado"
         }
         val urgentes = store.all().count { it.estado == "urgente" }
+        val stResumen = StatsEngine.resumen(store.all(), ahora)
+        val stConv = StatsEngine.conversionPorRubro(store.all())
+        val stRev = StatsEngine.revisitasPendientes(store.all(), ahora)
         val sinContacto = store.all().count {
             it.estado == "no-contactado" && it.telefono.filter { c -> c.isDigit() }.length >= 6
         }
@@ -148,6 +198,13 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             diaSinContacto = sinContacto,
             ruta = prev.ruta.mapNotNull { r -> ui.find { it.lead.id == r.lead.id } },
             rutaDistanciaKm = prev.rutaDistanciaKm,
+            statsResumen = stResumen,
+            statsConversion = stConv,
+            statsRevisitas = stRev,
+            googleKey = prev.googleKey,
+            msgPrimero = prev.msgPrimero,
+            msgSeguimiento = prev.msgSeguimiento,
+            msgCierre = prev.msgCierre,
             mensaje = when {
                 ui.isNotEmpty() && msg.isNotEmpty() -> msg
                 ui.isEmpty() && store.count() == 0  -> "Importá el JSON exportado desde la PWA para ver tus leads."
