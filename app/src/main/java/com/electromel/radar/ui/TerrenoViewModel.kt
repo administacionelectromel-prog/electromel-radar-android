@@ -9,6 +9,8 @@ import com.electromel.radar.domain.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 data class LeadUi(
     val lead: Lead,
@@ -35,7 +37,10 @@ data class TerrenoState(
     val googleKey: String = "",
     val msgPrimero: String = "",
     val msgSeguimiento: String = "",
-    val msgCierre: String = ""
+    val msgCierre: String = "",
+    val buscando: Boolean = false,
+    val buscarError: String = "",
+    val resultadosBusqueda: List<BuscarEngine.Resultado> = emptyList()
 )
 
 /**
@@ -125,6 +130,46 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Busca negocios (OSM + opcional Google) en IO, sin bloquear la UI. */
+    fun buscar(ciudad: String, rubro: String, usarGoogle: Boolean) {
+        _state.value = _state.value.copy(buscando = true, buscarError = "", resultadosBusqueda = emptyList())
+        viewModelScope.launch {
+            try {
+                val resultados = withContext(Dispatchers.IO) {
+                    val geo = BuscarEngine.geocodar(ciudad)
+                    val osm = BuscarEngine.buscarOsm(rubro, geo)
+                    val google = if (usarGoogle && _state.value.googleKey.isNotBlank())
+                        BuscarEngine.buscarGoogle(rubro, ciudad, _state.value.googleKey)
+                    else emptyList()
+                    BuscarEngine.fusionar(osm, google)
+                }
+                // Filtrar los que ya son leads (por osmId/googleId/nombre)
+                val nuevos = resultados.filter {
+                    store.encontrarExistente(it.googleId, it.osmId, it.nombre, it.direccion) == null
+                }
+                _state.value = _state.value.copy(buscando = false, resultadosBusqueda = nuevos,
+                    buscarError = if (nuevos.isEmpty()) "Sin resultados nuevos para \"$rubro\" en $ciudad" else "")
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(buscando = false,
+                    buscarError = "Error: ${e.message ?: "sin conexión"}")
+            }
+        }
+    }
+
+    /** Guarda un resultado de búsqueda como lead. */
+    fun guardarResultado(r: BuscarEngine.Resultado) {
+        val lead = BuscarEngine.aLead(r, java.util.UUID.randomUUID().toString(),
+            java.time.Instant.now().toString())
+        viewModelScope.launch {
+            store.upsert(lead)
+            // Quitar de resultados (ya guardado) y recomputar
+            _state.value = _state.value.copy(
+                resultadosBusqueda = _state.value.resultadosBusqueda.filter { it !== r }
+            )
+            recomputar("Guardado: " + lead.nombre)
+        }
+    }
+
     /** Captura un lead en terreno usando el GPS actual. */
     fun capturarLead(nombre: String, tipo: String, equipos: List<String>, tags: List<String>, tel: String) {
         val s = _state.value
@@ -205,6 +250,9 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             msgPrimero = prev.msgPrimero,
             msgSeguimiento = prev.msgSeguimiento,
             msgCierre = prev.msgCierre,
+            buscando = prev.buscando,
+            buscarError = prev.buscarError,
+            resultadosBusqueda = prev.resultadosBusqueda,
             mensaje = when {
                 ui.isNotEmpty() && msg.isNotEmpty() -> msg
                 ui.isEmpty() && store.count() == 0  -> "Importá el JSON exportado desde la PWA para ver tus leads."

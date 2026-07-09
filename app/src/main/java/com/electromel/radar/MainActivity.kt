@@ -77,7 +77,9 @@ class MainActivity : ComponentActivity() {
                                 else   -> Triple(ExportEngine.toTxt(leads), "electromel_contactos.txt", "text/plain")
                             }
                             ExportShare.compartir(this@MainActivity, contenido, archivo, mime)
-                        }
+                        },
+                        onBuscar = { ciudad, rubro, google -> vm.buscar(ciudad, rubro, google) },
+                        onGuardarResultado = { r -> vm.guardarResultado(r) }
                     )
                 }
             }
