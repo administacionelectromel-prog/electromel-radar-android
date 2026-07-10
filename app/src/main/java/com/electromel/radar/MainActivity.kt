@@ -67,6 +67,20 @@ class MainActivity : ComponentActivity() {
                         onCerrarLead = { vm.cerrarLead() },
                         onCambiarEstado = { id, estado -> vm.cambiarEstado(id, estado) },
                         onGenerarRuta = { vm.generarRuta() },
+                        onAgregarManual = { t -> vm.agregarParadaManual(t) },
+                        onMoverParada = { i, d -> vm.moverParada(i, d) },
+                        onQuitarParada = { i -> vm.quitarParada(i) },
+                        onLimpiarRuta = { vm.limpiarRuta() },
+                        onIniciarRecorrido = {
+                            val url = vm.iniciarRecorrido()
+                            if (url == null) {
+                                android.widget.Toast.makeText(this@MainActivity,
+                                    "La ruta está vacía", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                startActivity(android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                            }
+                        },
                         onGuardarApiKey = { k -> vm.guardarApiKey(k) },
                         onAgregarZona = { z -> vm.agregarZona(z) },
                         onQuitarZona = { z -> vm.quitarZona(z) },

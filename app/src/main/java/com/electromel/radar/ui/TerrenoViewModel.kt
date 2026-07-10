@@ -32,8 +32,7 @@ data class TerrenoState(
     val diaSeguimientos: Int = 0,
     val diaUrgentes: Int = 0,
     val diaSinContacto: Int = 0,
-    val ruta: List<LeadUi> = emptyList(),
-    val rutaDistanciaKm: Double = 0.0,
+    val ruta: List<RutaEngine.Parada> = emptyList(),
     val statsResumen: StatsEngine.Resumen = StatsEngine.Resumen(0,0,0,0,0,0,0,0),
     val statsConversion: List<StatsEngine.ConversionRubro> = emptyList(),
     val statsRevisitas: List<StatsEngine.Revisita> = emptyList(),
@@ -120,8 +119,13 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             try { jsonCfg.decodeFromString<Map<String, Map<String, String>>>(it) }
             catch (e: Exception) { null }
         } ?: Mensajes.DEFAULT
+        val rutaGuardada = cfg["ruta"]?.let {
+            try { jsonCfg.decodeFromString<List<RutaEngine.Parada>>(it) }
+            catch (e: Exception) { null }
+        } ?: emptyList()
         _state.value = _state.value.copy(
             googleKey = cfg["googleKey"] ?: "",
+            ruta = rutaGuardada,
             mensajes = msgs,
             zonasExtra = cfg["zonasExtra"]?.split("|")?.filter { it.isNotBlank() } ?: emptyList()
         )
@@ -182,14 +186,84 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = _state.value.copy(zonas = zs, zonasModo = modo, zonasRadio = radioM)
     }
 
-    /** +RUTA desde una zona: optimiza recorrido con los leads de esa zona. */
+    /** +RUTA desde una zona — port 1:1: AGREGA con dedup por leadId. */
     fun rutaDesdeZona(zona: ZonasEngine.Zona) {
+        var n = 0
+        var ruta = _state.value.ruta
+        for (l in zona.leads) {
+            if (ruta.none { it.leadId == l.id }) {
+                ruta = ruta + RutaEngine.Parada(
+                    id = java.util.UUID.randomUUID().toString(), leadId = l.id,
+                    nombre = l.nombre, direccion = l.direccion, lat = l.lat, lon = l.lon)
+                n++
+            }
+        }
+        _state.value = _state.value.copy(ruta = ruta, mensaje = "$n paradas agregadas")
+        guardarRuta(ruta)
+    }
+
+    /** Agrega un lead a la ruta — port 1:1 de agregarLeadARuta (dedup+toast). */
+    fun agregarLeadARuta(id: String) {
+        val l = store.all().find { it.id == id } ?: return
+        if (_state.value.ruta.any { it.leadId == id }) {
+            _state.value = _state.value.copy(mensaje = "Ya está en la ruta"); return
+        }
+        val ruta = _state.value.ruta + RutaEngine.Parada(
+            id = java.util.UUID.randomUUID().toString(), leadId = id,
+            nombre = l.nombre, direccion = l.direccion, lat = l.lat, lon = l.lon)
+        _state.value = _state.value.copy(ruta = ruta)
+        guardarRuta(ruta)
+    }
+
+    /** Parada manual — port 1:1: {nombre:v, direccion:v, sin coords}. */
+    fun agregarParadaManual(texto: String) {
+        val v = texto.trim(); if (v.isEmpty()) return
+        val ruta = _state.value.ruta + RutaEngine.Parada(
+            id = java.util.UUID.randomUUID().toString(),
+            nombre = v, direccion = v, lat = null, lon = null)
+        _state.value = _state.value.copy(ruta = ruta)
+        guardarRuta(ruta)
+    }
+
+    /** Mover parada ↑/↓ — port del control data-mov. */
+    fun moverParada(idx: Int, dir: Int) {
+        val r = _state.value.ruta.toMutableList()
+        val j = idx + dir
+        if (idx !in r.indices || j !in r.indices) return
+        val tmp = r[idx]; r[idx] = r[j]; r[j] = tmp
+        _state.value = _state.value.copy(ruta = r)
+        guardarRuta(r)
+    }
+
+    /** Quitar parada ✕ — port del control data-del. */
+    fun quitarParada(idx: Int) {
+        val r = _state.value.ruta.toMutableList()
+        if (idx !in r.indices) return
+        r.removeAt(idx)
+        _state.value = _state.value.copy(ruta = r)
+        guardarRuta(r)
+    }
+
+    /** LIMPIAR — port de btn-clear-ruta (la confirmación la hace la UI). */
+    fun limpiarRuta() {
+        _state.value = _state.value.copy(ruta = emptyList())
+        guardarRuta(emptyList())
+    }
+
+    /** INICIAR RECORRIDO — port 1:1: optimiza (sin persistir, como la PWA)
+     *  y devuelve la URL de Maps, o null si la ruta está vacía. */
+    fun iniciarRecorrido(): String? {
         val s = _state.value
-        val optimizada = RutaEngine.optimizar(zona.leads, s.userLat, s.userLon)
-        val dist = RutaEngine.distanciaTotal(optimizada, s.userLat, s.userLon)
-        val rutaUi = optimizada.mapNotNull { lead -> s.leads.find { it.lead.id == lead.id } }
-        _state.value = s.copy(ruta = rutaUi, rutaDistanciaKm = dist,
-            mensaje = "Ruta con ${rutaUi.size} paradas de ${zona.nombre}")
+        if (s.ruta.isEmpty()) return null
+        val opt = RutaEngine.optimizarParadas(s.ruta, s.userLat, s.userLon)
+        _state.value = s.copy(ruta = opt)
+        return RutaEngine.urlRecorrido(opt)
+    }
+
+    private fun guardarRuta(ruta: List<RutaEngine.Parada>) {
+        viewModelScope.launch {
+            store.setConfig("ruta", jsonCfg.encodeToString<List<RutaEngine.Parada>>(ruta))
+        }
     }
 
     /** Borra TODOS los leads (con confirmación en la UI). */
@@ -290,13 +364,18 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Genera la ruta óptima con los objetivos del día (RutaEngine). */
+    /** ARRANCAR DÍA → ruta (port de btn-dia-iniciar; lo consumirá TERRENO). */
     fun generarRuta() {
         val s = _state.value
-        val leadsObjetivo = s.objetivosDia.map { it.lead }
-        val optimizada = RutaEngine.optimizar(leadsObjetivo, s.userLat, s.userLon)
-        val dist = RutaEngine.distanciaTotal(optimizada, s.userLat, s.userLon)
-        val rutaUi = optimizada.mapNotNull { lead -> s.leads.find { it.lead.id == lead.id } }
-        _state.value = s.copy(ruta = rutaUi, rutaDistanciaKm = dist)
+        val paradas = s.objetivosDia.map { ui ->
+            RutaEngine.Parada(
+                id = java.util.UUID.randomUUID().toString(), leadId = ui.lead.id,
+                nombre = ui.lead.nombre, direccion = ui.lead.direccion,
+                lat = ui.lead.lat, lon = ui.lead.lon)
+        }
+        val opt = RutaEngine.optimizarParadas(paradas, s.userLat, s.userLon)
+        _state.value = s.copy(ruta = opt)
+        guardarRuta(opt)
     }
 
     fun setUbicacion(lat: Double, lon: Double) {
@@ -346,8 +425,7 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             diaSeguimientos = seguHoy,
             diaUrgentes = urgentes,
             diaSinContacto = sinContacto,
-            ruta = prev.ruta.mapNotNull { r -> ui.find { it.lead.id == r.lead.id } },
-            rutaDistanciaKm = prev.rutaDistanciaKm,
+            ruta = prev.ruta,
             statsResumen = stResumen,
             statsConversion = stConv,
             statsRevisitas = stRev,

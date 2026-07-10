@@ -30,7 +30,12 @@ fun RadarApp(
     onLeadClick: (String) -> Unit,
     onCerrarLead: () -> Unit,
     onCambiarEstado: (String, String) -> Unit,
-    onGenerarRuta: () -> Unit,
+    onGenerarRuta: () -> Unit,   // lo consumirá el panel ARRANCAR DÍA (loop TERRENO)
+    onAgregarManual: (String) -> Unit,
+    onMoverParada: (Int, Int) -> Unit,
+    onQuitarParada: (Int) -> Unit,
+    onLimpiarRuta: () -> Unit,
+    onIniciarRecorrido: () -> Unit,
     onGuardarApiKey: (String) -> Unit,
     onAgregarZona: (String) -> Unit,
     onQuitarZona: (String) -> Unit,
@@ -85,7 +90,12 @@ fun RadarApp(
                 3 -> HoyScreen(state = state, onLeadClick = onLeadClick,
                         onWhatsAppSeguimiento = onWhatsAppSeguimiento,
                         onPostergar = onPostergar)
-                4 -> RutaScreen(state = state, onGenerarRuta = onGenerarRuta, onLeadClick = onLeadClick)
+                4 -> RutaScreen(state = state,
+                        onAgregarManual = onAgregarManual,
+                        onMover = onMoverParada,
+                        onQuitar = onQuitarParada,
+                        onLimpiar = onLimpiarRuta,
+                        onIniciar = onIniciarRecorrido)
                 5 -> ZonasScreen(
                         state = state,
                         onRecalcular = onRecalcularZonas,
