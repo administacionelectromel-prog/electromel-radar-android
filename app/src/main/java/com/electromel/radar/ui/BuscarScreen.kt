@@ -25,7 +25,8 @@ private val RUBROS = listOf("taller","metalúrgica","soldadora","gym","hotel","c
 fun BuscarScreen(
     state: TerrenoState,
     onBuscar: (ciudad: String, rubro: String, usarGoogle: Boolean) -> Unit,
-    onGuardarResultado: (BuscarEngine.Resultado) -> Unit
+    onGuardarResultado: (BuscarEngine.Resultado) -> Unit,
+    onGuardarTodos: () -> Unit
 ) {
     var ciudad by remember { mutableStateOf("") }
     var rubro by remember { mutableStateOf("") }
@@ -85,7 +86,15 @@ fun BuscarScreen(
             }
             state.buscarError.isNotEmpty() -> Text(state.buscarError, color = RadarColors.red, fontSize = 12.sp)
             state.resultadosBusqueda.isNotEmpty() -> {
-                Text("${state.resultadosBusqueda.size} resultados", color = RadarColors.textDim, fontSize = 11.sp)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("${state.resultadosBusqueda.size} resultados", color = RadarColors.textDim, fontSize = 11.sp)
+                    Button(onClick = onGuardarTodos,
+                        colors = ButtonDefaults.buttonColors(containerColor = RadarColors.accent),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
+                        Text("+ GUARDAR TODOS", color = RadarColors.bg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
                 Spacer(Modifier.height(6.dp))
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(state.resultadosBusqueda) { r -> ResultadoCard(r, onGuardarResultado) }

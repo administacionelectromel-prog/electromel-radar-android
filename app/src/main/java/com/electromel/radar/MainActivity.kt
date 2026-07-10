@@ -79,7 +79,8 @@ class MainActivity : ComponentActivity() {
                             ExportShare.compartir(this@MainActivity, contenido, archivo, mime)
                         },
                         onBuscar = { ciudad, rubro, google -> vm.buscar(ciudad, rubro, google) },
-                        onGuardarResultado = { r -> vm.guardarResultado(r) }
+                        onGuardarResultado = { r -> vm.guardarResultado(r) },
+                        onGuardarTodos = { vm.guardarTodosResultados() }
                     )
                 }
             }

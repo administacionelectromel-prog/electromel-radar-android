@@ -35,7 +35,8 @@ fun RadarApp(
     onCapturar: (String, String, List<String>, List<String>, String) -> Unit,
     onExportar: (String, com.electromel.radar.domain.ExportEngine.Filtro) -> Unit,
     onBuscar: (String, String, Boolean) -> Unit,
-    onGuardarResultado: (com.electromel.radar.domain.BuscarEngine.Resultado) -> Unit
+    onGuardarResultado: (com.electromel.radar.domain.BuscarEngine.Resultado) -> Unit,
+    onGuardarTodos: () -> Unit
 ) {
     var tab by remember { mutableStateOf(1) }   // arranca en MAPA (1); lista = 0
     var centrarUser by remember { mutableStateOf(0) }
@@ -70,7 +71,7 @@ fun RadarApp(
                 4 -> StatsScreen(state = state, onLeadClick = onLeadClick)
                 5 -> CapturaScreen(tieneGps = state.userLat != null, onGuardar = onCapturar)
                 6 -> ExportarScreen(state = state, onExportar = onExportar, onImportar = onImportarClick)
-                8 -> BuscarScreen(state = state, onBuscar = onBuscar, onGuardarResultado = onGuardarResultado)
+                8 -> BuscarScreen(state = state, onBuscar = onBuscar, onGuardarResultado = onGuardarResultado, onGuardarTodos = onGuardarTodos)
                 7 -> ConfigScreen(
                         googleKey = state.googleKey,
                         msgPrimero = state.msgPrimero,

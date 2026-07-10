@@ -141,7 +141,8 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
                     val google = if (usarGoogle && _state.value.googleKey.isNotBlank())
                         BuscarEngine.buscarGoogle(rubro, ciudad, _state.value.googleKey)
                     else emptyList()
-                    BuscarEngine.fusionar(osm, google)
+                    val fusion = BuscarEngine.fusionar(osm, google)
+                    BuscarEngine.filtrarPorRadio(fusion, geo)  // descarta lejanos
                 }
                 // Filtrar los que ya son leads (por osmId/googleId/nombre)
                 val nuevos = resultados.filter {
@@ -167,6 +168,20 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
                 resultadosBusqueda = _state.value.resultadosBusqueda.filter { it !== r }
             )
             recomputar("Guardado: " + lead.nombre)
+        }
+    }
+
+    /** Guarda TODOS los resultados de búsqueda de una (menos toques). */
+    fun guardarTodosResultados() {
+        val resultados = _state.value.resultadosBusqueda
+        if (resultados.isEmpty()) return
+        viewModelScope.launch {
+            val ahora = java.time.Instant.now().toString()
+            resultados.forEach { r ->
+                store.upsert(BuscarEngine.aLead(r, java.util.UUID.randomUUID().toString(), ahora))
+            }
+            _state.value = _state.value.copy(resultadosBusqueda = emptyList())
+            recomputar("Guardados ${resultados.size} leads")
         }
     }
 

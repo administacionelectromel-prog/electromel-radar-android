@@ -1,4 +1,4 @@
-# ⚡ ELECTROMEL RADAR — Android nativo (Fase 4)
+# ⚡ ELECTROMEL RADAR — Android nativo (COMPLETA)
 
 Kotlin + Jetpack Compose. Puerto del motor de dominio de la PWA.
 

@@ -31,8 +31,19 @@ object BuscarEngine {
     data class Geo(val lat: Double, val lon: Double,
                    val south: Double, val north: Double, val west: Double, val east: Double)
 
-    /** Geocodifica una ciudad → centro + bounding box. */
+    // Cache de geocodificación por ciudad (evita repetir Nominatim)
+    private val geoCache = HashMap<String, Geo>()
+
+    /** Radio máximo útil: diagonal del bbox / 2, +20% margen, mínimo 15km. */
+    fun radioMaxKm(g: Geo): Double {
+        val diag = GeoUtils.distKm(g.south, g.west, g.north, g.east)
+        return maxOf(diag / 2 * 1.2, 15.0)
+    }
+
+    /** Geocodifica una ciudad → centro + bounding box. Con cache. */
     fun geocodar(ciudad: String): Geo {
+        val key = IutEngine.normalizar(ciudad)
+        geoCache[key]?.let { return it }
         val url = "https://nominatim.openstreetmap.org/search?q=" +
                 HttpClient.encode(ciudad) + "&format=json&limit=1&addressdetails=0"
         val body = HttpClient.get(url)
@@ -41,12 +52,14 @@ object BuscarEngine {
         val r = arr.getJSONObject(0)
         // Nominatim boundingbox = [S, N, W, E] como strings
         val bb = r.getJSONArray("boundingbox")
-        return Geo(
+        val geo = Geo(
             lat = r.getString("lat").toDouble(),
             lon = r.getString("lon").toDouble(),
             south = bb.getString(0).toDouble(), north = bb.getString(1).toDouble(),
             west = bb.getString(2).toDouble(), east = bb.getString(3).toDouble()
         )
+        geoCache[key] = geo
+        return geo
     }
 
     /** Construye la query Overpass (bbox en orden S,W,N,E que espera Overpass). */
@@ -138,6 +151,12 @@ object BuscarEngine {
             ))
         }
         return out
+    }
+
+    /** Descarta resultados fuera del radio útil de la ciudad (evita lejanos). */
+    fun filtrarPorRadio(resultados: List<Resultado>, g: Geo): List<Resultado> {
+        val rMax = radioMaxKm(g)
+        return resultados.filter { GeoUtils.distKm(g.lat, g.lon, it.lat, it.lon) <= rMax }
     }
 
     /** Fusiona OSM + Google sin duplicar (por proximidad + nombre). */
