@@ -22,6 +22,37 @@ object BuscarEngine {
     )
     private var serverIdx = 0
 
+    // ── Zonas de búsqueda (port de la PWA) ──
+    val ZONAS_INDUSTRIALES = listOf(
+        "", "parque industrial", "zona industrial", "zona talleres", "zona oeste",
+        "zona norte", "ruta 22", "corredor productivo", "barrio industrial",
+        "área logística", "polo industrial", "zona sur"
+    )
+    val ZONAS_GENERICAS = listOf(
+        "", "centro", "zona norte", "zona sur", "zona este", "zona oeste",
+        "zona comercial", "barrio centro", "avenida principal"
+    )
+    private val KEYWORDS_INDUSTRIALES = listOf(
+        "metalurg", "taller", "soldad", "torner", "herrer", "industrial", "industria",
+        "fabrica", "motor", "variador", "tablero", "electric", "mecanic", "corralon",
+        "logistic", "deposito", "galpon", "construcc", "plastic", "caucho",
+        "hidraulic", "neumatic", "generador", "compresor", "bomba", "refriger", "frigorif"
+    )
+
+    fun esRubroIndustrial(rubro: String): Boolean {
+        val r = IutEngine.normalizar(rubro)
+        return KEYWORDS_INDUSTRIALES.any { r.contains(it) }
+    }
+
+    /** Genera las consultas ciudad × zonas (port de generarConsultas). */
+    fun generarZonas(rubro: String, zonasExtra: List<String>): List<String> {
+        val base = when {
+            zonasExtra.isNotEmpty() -> listOf("") + zonasExtra
+            esRubroIndustrial(rubro) -> ZONAS_INDUSTRIALES
+            else -> ZONAS_GENERICAS
+        }
+        return base.take(12)  // MAX_CONSULTAS
+
     data class Resultado(
         val nombre: String, val lat: Double, val lon: Double,
         val tipo: String = "", val telefono: String = "", val direccion: String = "",
@@ -126,10 +157,22 @@ object BuscarEngine {
         return out
     }
 
-    /** Busca en Google Places (Text Search). Requiere API key. */
-    fun buscarGoogle(rubro: String, ciudad: String, apiKey: String): List<Resultado> {
+    /** Busca en Google Places por CADA zona (ciudad × zonas). Requiere API key. */
+    fun buscarGooglePorZonas(rubro: String, ciudad: String, apiKey: String,
+                             zonasExtra: List<String>): List<Resultado> {
         if (apiKey.isBlank()) return emptyList()
-        val query = "$rubro en $ciudad"
+        val zonas = generarZonas(rubro, zonasExtra)
+        val todos = mutableListOf<Resultado>()
+        for (zona in zonas) {
+            val q = if (zona.isBlank()) "$rubro $ciudad Argentina" else "$rubro $ciudad $zona"
+            try { todos.addAll(buscarGoogle(q, apiKey)) } catch (e: Exception) { /* seguir */ }
+        }
+        return todos
+    }
+
+    /** Busca en Google Places (Text Search) con una query armada. */
+    fun buscarGoogle(query: String, apiKey: String): List<Resultado> {
+        if (apiKey.isBlank()) return emptyList()
         val url = "https://maps.googleapis.com/maps/api/place/textsearch/json?query=" +
                 HttpClient.encode(query) + "&key=" + apiKey
         val body = HttpClient.get(url)

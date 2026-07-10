@@ -33,6 +33,7 @@ data class Lead(
     var cicloMantenimiento: Int? = null,
     var seguimientoFecha: String? = null,  // ISO 8601
     var creado: String = "",
+    var fotos: List<String> = emptyList(),
     var historial: List<EventoHistorial> = emptyList()
 )
 

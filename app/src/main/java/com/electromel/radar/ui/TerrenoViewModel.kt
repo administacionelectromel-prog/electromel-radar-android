@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 
 data class LeadUi(
     val lead: Lead,
@@ -31,16 +34,19 @@ data class TerrenoState(
     val diaSinContacto: Int = 0,
     val ruta: List<LeadUi> = emptyList(),
     val rutaDistanciaKm: Double = 0.0,
-    val statsResumen: StatsEngine.Resumen = StatsEngine.Resumen(0,0,0,0,0,0),
+    val statsResumen: StatsEngine.Resumen = StatsEngine.Resumen(0,0,0,0,0,0,0,0),
     val statsConversion: List<StatsEngine.ConversionRubro> = emptyList(),
     val statsRevisitas: List<StatsEngine.Revisita> = emptyList(),
+    val statsEquipos: List<StatsEngine.EquipoTop> = emptyList(),
     val googleKey: String = "",
-    val msgPrimero: String = "",
-    val msgSeguimiento: String = "",
-    val msgCierre: String = "",
+    val mensajes: Map<String, Map<String, String>> = Mensajes.DEFAULT,
+    val zonas: List<ZonasEngine.Zona> = emptyList(),
+    val zonasModo: ZonasEngine.Modo = ZonasEngine.Modo.AUTO,
+    val zonasRadio: Int = 800,
     val buscando: Boolean = false,
     val buscarError: String = "",
-    val resultadosBusqueda: List<BuscarEngine.Resultado> = emptyList()
+    val resultadosBusqueda: List<BuscarEngine.Resultado> = emptyList(),
+    val zonasExtra: List<String> = emptyList()
 )
 
 /**
@@ -49,6 +55,7 @@ data class TerrenoState(
  */
 class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
 
+    private val jsonCfg = Json { ignoreUnknownKeys = true }
     private val db = RadarDatabase.get(app)
     private val store = LeadStore(db.leadDao(), db.configDao())
     private val _state = MutableStateFlow(TerrenoState())
@@ -109,24 +116,63 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun cargarConfig() {
         val cfg = store.getConfig()
+        val msgs = cfg["mensajes"]?.let {
+            try { jsonCfg.decodeFromString<Map<String, Map<String, String>>>(it) }
+            catch (e: Exception) { null }
+        } ?: Mensajes.DEFAULT
         _state.value = _state.value.copy(
             googleKey = cfg["googleKey"] ?: "",
-            msgPrimero = cfg["msgPrimero"] ?: Mensajes.primerContacto(Lead(id="", nombre="{nombre}")),
-            msgSeguimiento = cfg["msgSeguimiento"] ?: Mensajes.seguimiento(Lead(id="", nombre="{nombre}")),
-            msgCierre = cfg["msgCierre"] ?: Mensajes.cierre(Lead(id="", nombre="{nombre}"))
+            mensajes = msgs,
+            zonasExtra = cfg["zonasExtra"]?.split("|")?.filter { it.isNotBlank() } ?: emptyList()
         )
     }
 
-    fun guardarConfig(key: String, primero: String, seguimiento: String, cierre: String) {
+    fun guardarApiKey(key: String) {
         viewModelScope.launch {
             store.setConfig("googleKey", key)
-            store.setConfig("msgPrimero", primero)
-            store.setConfig("msgSeguimiento", seguimiento)
-            store.setConfig("msgCierre", cierre)
-            _state.value = _state.value.copy(
-                googleKey = key, msgPrimero = primero,
-                msgSeguimiento = seguimiento, msgCierre = cierre
-            )
+            _state.value = _state.value.copy(googleKey = key, mensaje = "API Key guardada")
+        }
+    }
+
+    /** Guarda las 3 plantillas del rubro seleccionado (port de btn-save-msg). */
+    fun guardarPlantillas(rubro: String, primero: String, seguimiento: String, cierre: String) {
+        val nuevos = _state.value.mensajes.toMutableMap()
+        nuevos[rubro] = mapOf("primero" to primero, "seguimiento" to seguimiento, "cierre" to cierre)
+        viewModelScope.launch {
+            store.setConfig("mensajes", jsonCfg.encodeToString<Map<String, Map<String, String>>>(nuevos))
+            _state.value = _state.value.copy(mensajes = nuevos, mensaje = "Plantillas guardadas")
+        }
+    }
+
+    /** Restaura TODAS las plantillas a los textos por defecto (btn-reset-msg). */
+    fun restaurarPlantillas() {
+        viewModelScope.launch {
+            store.setConfig("mensajes", jsonCfg.encodeToString<Map<String, Map<String, String>>>(Mensajes.DEFAULT))
+            _state.value = _state.value.copy(mensajes = Mensajes.DEFAULT, mensaje = "Plantillas restauradas")
+        }
+    }
+
+    /** MAPA CALOR: recalcula zonas con el modo y radio elegidos. */
+    fun recalcularZonas(modo: ZonasEngine.Modo, radioM: Int) {
+        val zs = ZonasEngine.calcular(store.all(), modo, radioM)
+        _state.value = _state.value.copy(zonas = zs, zonasModo = modo, zonasRadio = radioM)
+    }
+
+    /** +RUTA desde una zona: optimiza recorrido con los leads de esa zona. */
+    fun rutaDesdeZona(zona: ZonasEngine.Zona) {
+        val s = _state.value
+        val optimizada = RutaEngine.optimizar(zona.leads, s.userLat, s.userLon)
+        val dist = RutaEngine.distanciaTotal(optimizada, s.userLat, s.userLon)
+        val rutaUi = optimizada.mapNotNull { lead -> s.leads.find { it.lead.id == lead.id } }
+        _state.value = s.copy(ruta = rutaUi, rutaDistanciaKm = dist,
+            mensaje = "Ruta con ${rutaUi.size} paradas de ${zona.nombre}")
+    }
+
+    /** Borra TODOS los leads (con confirmación en la UI). */
+    fun borrarTodo() {
+        viewModelScope.launch {
+            store.clear()
+            recomputar("Todo borrado")
         }
     }
 
@@ -139,7 +185,7 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
                     val geo = BuscarEngine.geocodar(ciudad)
                     val osm = BuscarEngine.buscarOsm(rubro, geo)
                     val google = if (usarGoogle && _state.value.googleKey.isNotBlank())
-                        BuscarEngine.buscarGoogle(rubro, ciudad, _state.value.googleKey)
+                        BuscarEngine.buscarGooglePorZonas(rubro, ciudad, _state.value.googleKey, _state.value.zonasExtra)
                     else emptyList()
                     val fusion = BuscarEngine.fusionar(osm, google)
                     BuscarEngine.filtrarPorRadio(fusion, geo)  // descarta lejanos
@@ -182,6 +228,25 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             }
             _state.value = _state.value.copy(resultadosBusqueda = emptyList())
             recomputar("Guardados ${resultados.size} leads")
+        }
+    }
+
+    /** Agrega una zona de búsqueda personalizada. */
+    fun agregarZona(zona: String) {
+        val z = zona.trim()
+        if (z.isBlank() || z in _state.value.zonasExtra) return
+        val nuevas = _state.value.zonasExtra + z
+        viewModelScope.launch {
+            store.setConfig("zonasExtra", nuevas.joinToString("|"))
+            _state.value = _state.value.copy(zonasExtra = nuevas)
+        }
+    }
+
+    fun quitarZona(zona: String) {
+        val nuevas = _state.value.zonasExtra - zona
+        viewModelScope.launch {
+            store.setConfig("zonasExtra", nuevas.joinToString("|"))
+            _state.value = _state.value.copy(zonasExtra = nuevas)
         }
     }
 
@@ -239,6 +304,7 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
         val stResumen = StatsEngine.resumen(store.all(), ahora)
         val stConv = StatsEngine.conversionPorRubro(store.all())
         val stRev = StatsEngine.revisitasPendientes(store.all(), ahora)
+        val stEquipos = StatsEngine.equiposTop(store.all())
         val sinContacto = store.all().count {
             it.estado == "no-contactado" && it.telefono.filter { c -> c.isDigit() }.length >= 6
         }
@@ -261,13 +327,16 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             statsResumen = stResumen,
             statsConversion = stConv,
             statsRevisitas = stRev,
+            statsEquipos = stEquipos,
             googleKey = prev.googleKey,
-            msgPrimero = prev.msgPrimero,
-            msgSeguimiento = prev.msgSeguimiento,
-            msgCierre = prev.msgCierre,
+            mensajes = prev.mensajes,
+            zonas = prev.zonas,
+            zonasModo = prev.zonasModo,
+            zonasRadio = prev.zonasRadio,
             buscando = prev.buscando,
             buscarError = prev.buscarError,
             resultadosBusqueda = prev.resultadosBusqueda,
+            zonasExtra = prev.zonasExtra,
             mensaje = when {
                 ui.isNotEmpty() && msg.isNotEmpty() -> msg
                 ui.isEmpty() && store.count() == 0  -> "Importá el JSON exportado desde la PWA para ver tus leads."

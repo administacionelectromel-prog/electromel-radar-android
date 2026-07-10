@@ -39,6 +39,7 @@ data class LeadEntity(
     val cicloMantenimiento: Int?,
     val seguimientoFecha: String?,
     val creado: String,
+    val fotosJson: String,
     val historialJson: String
 ) {
     fun toDomain(): Lead = Lead(
@@ -51,6 +52,7 @@ data class LeadEntity(
         googleId = googleId, osmId = osmId, rating = rating,
         intentosContacto = intentosContacto, cicloMantenimiento = cicloMantenimiento,
         seguimientoFecha = seguimientoFecha, creado = creado,
+        fotos = JSON.decodeFromString<List<String>>(fotosJson),
         historial = JSON.decodeFromString<List<EventoHistorial>>(historialJson)
     )
 

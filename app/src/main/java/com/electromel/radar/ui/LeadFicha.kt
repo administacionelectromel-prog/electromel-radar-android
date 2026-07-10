@@ -24,6 +24,7 @@ private val ESTADOS = listOf(
 @Composable
 fun LeadFicha(
     item: LeadUi,
+    mensajes: Map<String, Map<String, String>> = Mensajes.DEFAULT,
     onCerrar: () -> Unit,
     onCambiarEstado: (String) -> Unit
 ) {
@@ -74,7 +75,13 @@ fun LeadFicha(
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 AccBtn("💬 WhatsApp", RadarColors.accent, Modifier.weight(1f)) {
-                    AccionesNativas.whatsapp(ctx, lead, Mensajes.primerContacto(lead))
+                    // Tipo de plantilla según etapa del lead (como la PWA)
+                    val tipo = when (lead.estado) {
+                        "no-contactado" -> "primero"
+                        "contactado", "respondio" -> "seguimiento"
+                        else -> "cierre"
+                    }
+                    AccionesNativas.whatsapp(ctx, lead, Mensajes.build(lead, tipo, mensajes))
                 }
                 AccBtn("📞 Llamar", RadarColors.blue, Modifier.weight(1f)) {
                     AccionesNativas.llamar(ctx, lead)

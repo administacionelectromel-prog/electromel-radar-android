@@ -67,7 +67,13 @@ class MainActivity : ComponentActivity() {
                         onCerrarLead = { vm.cerrarLead() },
                         onCambiarEstado = { id, estado -> vm.cambiarEstado(id, estado) },
                         onGenerarRuta = { vm.generarRuta() },
-                        onGuardarConfig = { k, p1, p2, p3 -> vm.guardarConfig(k, p1, p2, p3) },
+                        onGuardarApiKey = { k -> vm.guardarApiKey(k) },
+                        onAgregarZona = { z -> vm.agregarZona(z) },
+                        onQuitarZona = { z -> vm.quitarZona(z) },
+                        onGuardarPlantillas = { r, p1, p2, p3 -> vm.guardarPlantillas(r, p1, p2, p3) },
+                        onRestaurarPlantillas = { vm.restaurarPlantillas() },
+                        onRecalcularZonas = { modo, radio -> vm.recalcularZonas(modo, radio) },
+                        onZonaARuta = { z -> vm.rutaDesdeZona(z) },
                         onCapturar = { nom, tipo, eq, tags, tel -> vm.capturarLead(nom, tipo, eq, tags, tel) },
                         onExportar = { formato, filtro ->
                             val leads = ExportEngine.filtrar(state.leads.map { it.lead }, filtro)
@@ -80,7 +86,18 @@ class MainActivity : ComponentActivity() {
                         },
                         onBuscar = { ciudad, rubro, google -> vm.buscar(ciudad, rubro, google) },
                         onGuardarResultado = { r -> vm.guardarResultado(r) },
-                        onGuardarTodos = { vm.guardarTodosResultados() }
+                        onGuardarTodos = { vm.guardarTodosResultados() },
+                        onCampanaWhatsapp = {
+                            // Campaña: abre WhatsApp con el primer lead con teléfono pendiente
+                            val conTel = state.leads.map { it.lead }.firstOrNull {
+                                it.telefono.filter { c -> c.isDigit() }.length >= 6 &&
+                                it.estado == "no-contactado"
+                            }
+                            if (conTel != null)
+                                AccionesNativas.whatsapp(this@MainActivity, conTel,
+                                    com.electromel.radar.domain.Mensajes.build(conTel, "primero", state.mensajes))
+                        },
+                        onBorrarTodo = { vm.borrarTodo() }
                     )
                 }
             }

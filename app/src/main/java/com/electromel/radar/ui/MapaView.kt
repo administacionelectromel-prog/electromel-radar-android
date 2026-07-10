@@ -24,6 +24,8 @@ fun MapaView(
     userLat: Double?,
     userLon: Double?,
     centrarEnUser: Int,          // se incrementa para pedir "centrar en mi ubicación"
+    centrarPunto: Pair<Double, Double>? = null,  // punto arbitrario (MAPA de zonas)
+    centrarPuntoTick: Int = 0,   // se incrementa para pedir el centrado
     onLeadClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -85,6 +87,13 @@ fun MapaView(
     LaunchedEffect(centrarEnUser) {
         if (centrarEnUser > 0 && userLat != null && userLon != null) {
             mapView.controller.animateTo(GeoPoint(userLat, userLon))
+            mapView.controller.setZoom(15.0)
+        }
+    }
+
+    LaunchedEffect(centrarPuntoTick) {
+        if (centrarPuntoTick > 0 && centrarPunto != null) {
+            mapView.controller.animateTo(GeoPoint(centrarPunto.first, centrarPunto.second))
             mapView.controller.setZoom(15.0)
         }
     }

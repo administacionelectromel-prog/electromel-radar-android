@@ -8,8 +8,11 @@ object StatsEngine {
 
     data class Resumen(
         val total: Int, val contactados: Int, val respondio: Int,
-        val clientes: Int, val urgentes: Int, val pendSeg: Int
+        val clientes: Int, val urgentes: Int, val pendSeg: Int,
+        val conFotos: Int, val estrategicos: Int
     )
+
+    data class EquipoTop(val label: String, val cnt: Int, val pct: Int)
 
     data class ConversionRubro(
         val rubro: String, val total: Int, val contactados: Int, val clientes: Int,
@@ -21,17 +24,49 @@ object StatsEngine {
     )
 
     fun resumen(leads: List<Lead>, ahoraMs: Long = System.currentTimeMillis()): Resumen {
-        val activos = leads.filter { it.estado != "descartado" }
+        // total = TODOS los leads (como la PWA: leads.length)
         return Resumen(
-            total = activos.size,
-            contactados = activos.count { it.estado != "no-contactado" },
-            respondio = activos.count { it.estado in listOf("respondio", "presupuesto", "esperando") },
-            clientes = activos.count { it.estado in listOf("cliente", "recurrente", "mantenimiento") },
-            urgentes = activos.count { it.estado == "urgente" },
-            pendSeg = activos.count {
-                it.seguimientoFecha?.let { s -> parseIsoMs(s)?.let { m -> m <= ahoraMs } } == true
-            }
+            total = leads.size,
+            contactados = leads.count { it.estado != "no-contactado" && it.estado != "descartado" },
+            respondio = leads.count { it.estado in listOf("respondio", "presupuesto", "esperando") },
+            clientes = leads.count { it.estado in listOf("cliente", "recurrente", "mantenimiento") },
+            urgentes = leads.count { it.estado == "urgente" },
+            conFotos = leads.count { it.fotos.isNotEmpty() },
+            pendSeg = leads.count {
+                it.seguimientoFecha?.let { s -> parseIsoMs(s)?.let { m -> m <= ahoraMs } } == true &&
+                it.estado != "descartado"
+            },
+            estrategicos = leads.count { it.nivel == "estrategico" }
         )
+    }
+
+    /** Top de equipos detectados — port de calcularEquiposTop. */
+    /** Catálogo de equipos — port 1:1 de EQUIPOS_CATALOGO (id → ico to label). */
+    val EQUIPOS_CATALOGO: Map<String, Pair<String, String>> = linkedMapOf(
+        "soldadora" to ("⚡" to "SOLDADORA INVERTER"),
+        "cinta" to ("🏃" to "CINTA DE CORRER"),
+        "variador" to ("⚙️" to "VARIADOR"),
+        "tablero" to ("🔌" to "TABLERO ELÉCTRICO"),
+        "bomba" to ("💧" to "BOMBA"),
+        "motor" to ("🔧" to "MOTOR"),
+        "horno" to ("🔥" to "HORNO INDUSTRIAL"),
+        "placa" to ("🖥️" to "PLACA ELECTRÓNICA"),
+        "herramienta" to ("🪛" to "HERR. ELÉCTRICA"),
+        "compresor" to ("💨" to "COMPRESOR"),
+        "generador" to ("⚡" to "GENERADOR"),
+        "otro" to ("📦" to "OTRO EQUIPO")
+    )
+
+    fun equiposTop(leads: List<Lead>, max: Int = 6): List<EquipoTop> {
+        val freq = HashMap<String, Int>()
+        leads.forEach { l -> l.equipos.forEach { e -> freq[e] = (freq[e] ?: 0) + 1 } }
+        val orden = freq.entries.sortedByDescending { it.value }.take(max)
+        val maxCnt = orden.firstOrNull()?.value ?: 1
+        return orden.map { (eid, cnt) ->
+            val cat = EQUIPOS_CATALOGO[eid]
+            val label = if (cat != null) "${'$'}{cat.first} ${'$'}{cat.second}" else eid.uppercase()
+            EquipoTop(label, cnt, Math.round(cnt * 100.0 / maxCnt).toInt())
+        }
     }
 
     fun conversionPorRubro(leads: List<Lead>): List<ConversionRubro> {

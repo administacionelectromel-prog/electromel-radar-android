@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [LeadEntity::class, ConfigEntity::class], version = 2, exportSchema = false)
+@Database(entities = [LeadEntity::class, ConfigEntity::class], version = 3, exportSchema = false)
 abstract class RadarDatabase : RoomDatabase() {
     abstract fun leadDao(): LeadDao
     abstract fun configDao(): ConfigDao

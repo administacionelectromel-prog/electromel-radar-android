@@ -31,17 +31,30 @@ fun RadarApp(
     onCerrarLead: () -> Unit,
     onCambiarEstado: (String, String) -> Unit,
     onGenerarRuta: () -> Unit,
-    onGuardarConfig: (String, String, String, String) -> Unit,
+    onGuardarApiKey: (String) -> Unit,
+    onAgregarZona: (String) -> Unit,
+    onQuitarZona: (String) -> Unit,
+    onGuardarPlantillas: (String, String, String, String) -> Unit,
+    onRestaurarPlantillas: () -> Unit,
+    onRecalcularZonas: (com.electromel.radar.domain.ZonasEngine.Modo, Int) -> Unit,
+    onZonaARuta: (com.electromel.radar.domain.ZonasEngine.Zona) -> Unit,
     onCapturar: (String, String, List<String>, List<String>, String) -> Unit,
     onExportar: (String, com.electromel.radar.domain.ExportEngine.Filtro) -> Unit,
     onBuscar: (String, String, Boolean) -> Unit,
     onGuardarResultado: (com.electromel.radar.domain.BuscarEngine.Resultado) -> Unit,
-    onGuardarTodos: () -> Unit
+    onGuardarTodos: () -> Unit,
+    onCampanaWhatsapp: () -> Unit,
+    onBorrarTodo: () -> Unit
 ) {
-    var tab by remember { mutableStateOf(1) }   // arranca en MAPA (1); lista = 0
+    var tab by remember { mutableStateOf(0) }   // arranca en TERRENO (mapa + lista)
     var centrarUser by remember { mutableStateOf(0) }
+    var centrarPunto by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var centrarPuntoTick by remember { mutableStateOf(0) }
+    var mostrarCaptura by remember { mutableStateOf(false) }
+    var mostrarExportar by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().background(RadarColors.bg).statusBarsPadding().navigationBarsPadding()) {
+    Box(Modifier.fillMaxSize().background(RadarColors.bg)) {
+    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
 
         // Selector de pestañas — zIndex alto para quedar SOBRE el MapView
         // nativo (osmdroid captura toques de su área via AndroidView)
@@ -64,21 +77,84 @@ fun RadarApp(
 
         Box(Modifier.weight(1f)) {
             when (tab) {
-                0 -> TerrenoConMapa(state, centrarUser, { centrarUser++ }, onImportarClick, onLeadClick)
+                0 -> TerrenoConMapa(state, centrarUser, centrarPunto, centrarPuntoTick, { centrarUser++ }, onImportarClick, onLeadClick)
                 1 -> BuscarScreen(state = state, onBuscar = onBuscar, onGuardarResultado = onGuardarResultado, onGuardarTodos = onGuardarTodos)
-                2 -> TerrenoScreen(state = state, onImportarClick = onImportarClick, onLeadClick = onLeadClick)
+                2 -> LeadsScreen(state = state, onLeadClick = onLeadClick)
                 3 -> HoyScreen(state = state, onLeadClick = onLeadClick)
                 4 -> RutaScreen(state = state, onGenerarRuta = onGenerarRuta, onLeadClick = onLeadClick)
-                5 -> ZonasScreenPlaceholder()
-                6 -> StatsScreen(state = state, onLeadClick = onLeadClick)
+                5 -> ZonasScreen(
+                        state = state,
+                        onRecalcular = onRecalcularZonas,
+                        onLeadClick = onLeadClick,
+                        onZonaARuta = { z -> onZonaARuta(z); tab = 4 },
+                        onVerEnMapa = { lat, lon ->
+                            centrarPunto = lat to lon; centrarPuntoTick++; tab = 0
+                        }
+                    )
+                6 -> StatsScreen(
+                        state = state,
+                        onLeadClick = onLeadClick,
+                        onCampanaWhatsapp = onCampanaWhatsapp,
+                        onExportarAvanzado = { mostrarExportar = true },
+                        onExportarJson = { onExportar("json", com.electromel.radar.domain.ExportEngine.Filtro.TODOS) },
+                        onImportar = onImportarClick,
+                        onBorrarTodo = onBorrarTodo
+                    )
                 7 -> ConfigScreen(
                         googleKey = state.googleKey,
-                        msgPrimero = state.msgPrimero,
-                        msgSeguimiento = state.msgSeguimiento,
-                        msgCierre = state.msgCierre,
-                        onGuardar = onGuardarConfig
+                        zonasExtra = state.zonasExtra,
+                        mensajes = state.mensajes,
+                        onGuardarApiKey = onGuardarApiKey,
+                        onAgregarZona = onAgregarZona,
+                        onQuitarZona = onQuitarZona,
+                        onGuardarPlantillas = onGuardarPlantillas,
+                        onRestaurarPlantillas = onRestaurarPlantillas
                     )
             }
+        }
+    }
+
+    // FAB "+" naranja global — captura rápida desde cualquier pestaña (como la PWA)
+    FloatingActionButton(
+        onClick = { mostrarCaptura = true },
+        containerColor = RadarColors.orange,
+        modifier = Modifier.align(Alignment.BottomEnd)
+            .navigationBarsPadding().padding(16.dp).zIndex(20f)
+    ) { Text("+", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = RadarColors.bg) }
+
+    // Overlay de EXPORTAR / SINCRONIZAR (modal como la PWA)
+    if (mostrarExportar) {
+        Box(Modifier.fillMaxSize().zIndex(30f).background(RadarColors.bg)
+            .statusBarsPadding().navigationBarsPadding()) {
+            ExportarScreen(
+                state = state,
+                onExportar = { f, filtro -> onExportar(f, filtro); mostrarExportar = false },
+                onImportar = { onImportarClick(); mostrarExportar = false }
+            )
+            Text("✕", color = RadarColors.textDim, fontSize = 22.sp,
+                 fontWeight = FontWeight.Bold,
+                 modifier = Modifier.align(Alignment.TopEnd)
+                     .clickable { mostrarExportar = false }
+                     .padding(16.dp))
+        }
+    }
+
+    // Overlay de CAPTURA RÁPIDA (modal como la PWA)
+    if (mostrarCaptura) {
+        Box(Modifier.fillMaxSize().zIndex(30f).background(RadarColors.bg)
+            .statusBarsPadding().navigationBarsPadding()) {
+            CapturaScreen(
+                tieneGps = state.userLat != null,
+                onGuardar = { nom, tipo, eq, tags, tel ->
+                    onCapturar(nom, tipo, eq, tags, tel)
+                    mostrarCaptura = false
+                }
+            )
+            Text("✕", color = RadarColors.textDim, fontSize = 22.sp,
+                 fontWeight = FontWeight.Bold,
+                 modifier = Modifier.align(Alignment.TopEnd)
+                     .clickable { mostrarCaptura = false }
+                     .padding(16.dp))
         }
     }
 
@@ -86,9 +162,11 @@ fun RadarApp(
     state.leadSeleccionado?.let { sel ->
         LeadFicha(
             item = sel,
+            mensajes = state.mensajes,
             onCerrar = onCerrarLead,
             onCambiarEstado = { nuevo -> onCambiarEstado(sel.lead.id, nuevo) }
         )
+    }
     }
 }
 
@@ -113,6 +191,8 @@ private fun TabBtn(label: String, activo: Boolean, onClick: () -> Unit) {
 private fun TerrenoConMapa(
     state: TerrenoState,
     centrarUser: Int,
+    centrarPunto: Pair<Double, Double>?,
+    centrarPuntoTick: Int,
     onCentrar: () -> Unit,
     onImportarClick: () -> Unit,
     onLeadClick: (String) -> Unit
@@ -124,6 +204,8 @@ private fun TerrenoConMapa(
                 userLat = state.userLat,
                 userLon = state.userLon,
                 centrarEnUser = centrarUser,
+                centrarPunto = centrarPunto,
+                centrarPuntoTick = centrarPuntoTick,
                 onLeadClick = onLeadClick,
                 modifier = Modifier.fillMaxSize()
             )
@@ -139,9 +221,3 @@ private fun TerrenoConMapa(
     }
 }
 
-@Composable
-private fun ZonasScreenPlaceholder() {
-    Box(Modifier.fillMaxSize().background(RadarColors.bg), contentAlignment = Alignment.Center) {
-        Text("ZONAS \u2014 en construcci\u00f3n", color = RadarColors.textDim, fontSize = 14.sp)
-    }
-}
