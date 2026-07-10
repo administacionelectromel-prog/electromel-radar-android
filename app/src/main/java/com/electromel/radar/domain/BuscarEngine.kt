@@ -52,6 +52,7 @@ object BuscarEngine {
             else -> ZONAS_GENERICAS
         }
         return base.take(12)  // MAX_CONSULTAS
+    }
 
     data class Resultado(
         val nombre: String, val lat: Double, val lon: Double,
