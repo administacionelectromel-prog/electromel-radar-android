@@ -46,32 +46,31 @@ fun RadarApp(
         // Selector de pestañas — zIndex alto para quedar SOBRE el MapView
         // nativo (osmdroid captura toques de su área via AndroidView)
         Row(
-            Modifier.fillMaxWidth().zIndex(10f).background(RadarColors.bgCard)
+            Modifier.fillMaxWidth().zIndex(10f).background(RadarColors.bg)
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TabBtn("📋 LISTA", tab == 0) { tab = 0 }
-            TabBtn("🗺️ MAPA", tab == 1) { tab = 1 }
-            TabBtn("⚡ HOY", tab == 2) { tab = 2 }
-            TabBtn("🧭 RUTA", tab == 3) { tab = 3 }
-            TabBtn("📊 STATS", tab == 4) { tab = 4 }
-            TabBtn("➕ CAPT", tab == 5) { tab = 5 }
-            TabBtn("⬇ EXP", tab == 6) { tab = 6 }
-            TabBtn("🔍 BUSCAR", tab == 8) { tab = 8 }
-            TabBtn("⚙️ CFG", tab == 7) { tab = 7 }
+            TabBtn("TERRENO", tab == 0) { tab = 0 }
+            TabBtn("BUSCAR", tab == 1) { tab = 1 }
+            TabBtn("LEADS", tab == 2) { tab = 2 }
+            TabBtn("HOY", tab == 3) { tab = 3 }
+            TabBtn("RUTA", tab == 4) { tab = 4 }
+            TabBtn("ZONAS", tab == 5) { tab = 5 }
+            TabBtn("STATS", tab == 6) { tab = 6 }
+            TabBtn("CONFIG", tab == 7) { tab = 7 }
         }
 
         Box(Modifier.weight(1f)) {
             when (tab) {
-                0 -> TerrenoScreen(state = state, onImportarClick = onImportarClick, onLeadClick = onLeadClick)
-                2 -> HoyScreen(state = state, onLeadClick = onLeadClick)
-                3 -> RutaScreen(state = state, onGenerarRuta = onGenerarRuta, onLeadClick = onLeadClick)
-                4 -> StatsScreen(state = state, onLeadClick = onLeadClick)
-                5 -> CapturaScreen(tieneGps = state.userLat != null, onGuardar = onCapturar)
-                6 -> ExportarScreen(state = state, onExportar = onExportar, onImportar = onImportarClick)
-                8 -> BuscarScreen(state = state, onBuscar = onBuscar, onGuardarResultado = onGuardarResultado, onGuardarTodos = onGuardarTodos)
+                0 -> TerrenoConMapa(state, centrarUser, { centrarUser++ }, onImportarClick, onLeadClick)
+                1 -> BuscarScreen(state = state, onBuscar = onBuscar, onGuardarResultado = onGuardarResultado, onGuardarTodos = onGuardarTodos)
+                2 -> TerrenoScreen(state = state, onImportarClick = onImportarClick, onLeadClick = onLeadClick)
+                3 -> HoyScreen(state = state, onLeadClick = onLeadClick)
+                4 -> RutaScreen(state = state, onGenerarRuta = onGenerarRuta, onLeadClick = onLeadClick)
+                5 -> ZonasScreenPlaceholder()
+                6 -> StatsScreen(state = state, onLeadClick = onLeadClick)
                 7 -> ConfigScreen(
                         googleKey = state.googleKey,
                         msgPrimero = state.msgPrimero,
@@ -79,33 +78,6 @@ fun RadarApp(
                         msgCierre = state.msgCierre,
                         onGuardar = onGuardarConfig
                     )
-                1 -> {
-                    MapaView(
-                        leads = state.leads,
-                        userLat = state.userLat,
-                        userLon = state.userLon,
-                        centrarEnUser = centrarUser,
-                        onLeadClick = onLeadClick,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                    // FAB centrar en usuario
-                    FloatingActionButton(
-                        onClick = { centrarUser++ },
-                        containerColor = RadarColors.orange,
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-                    ) { Text("◎", fontSize = 22.sp) }
-
-                    // Aviso si no hay GPS
-                    if (state.userLat == null) {
-                        Surface(
-                            color = RadarColors.bgPanel,
-                            modifier = Modifier.align(Alignment.TopCenter).padding(8.dp)
-                        ) {
-                            Text("Esperando GPS...", color = RadarColors.textDim,
-                                 fontSize = 11.sp, modifier = Modifier.padding(8.dp))
-                        }
-                    }
-                }
             }
         }
     }
@@ -133,5 +105,43 @@ private fun TabBtn(label: String, activo: Boolean, onClick: () -> Unit) {
     ) {
         Text(label, fontWeight = FontWeight.Bold, fontSize = 12.sp,
              color = if (activo) RadarColors.bg else RadarColors.textDim)
+    }
+}
+
+/* TERRENO como la PWA: mapa arriba (55%) + lista abajo (45%). */
+@Composable
+private fun TerrenoConMapa(
+    state: TerrenoState,
+    centrarUser: Int,
+    onCentrar: () -> Unit,
+    onImportarClick: () -> Unit,
+    onLeadClick: (String) -> Unit
+) {
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxWidth().weight(0.55f)) {
+            MapaView(
+                leads = state.leads,
+                userLat = state.userLat,
+                userLon = state.userLon,
+                centrarEnUser = centrarUser,
+                onLeadClick = onLeadClick,
+                modifier = Modifier.fillMaxSize()
+            )
+            FloatingActionButton(
+                onClick = onCentrar,
+                containerColor = RadarColors.orange,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+            ) { Text("\u25ce", fontSize = 22.sp) }
+        }
+        Box(Modifier.fillMaxWidth().weight(0.45f)) {
+            TerrenoScreen(state = state, onImportarClick = onImportarClick, onLeadClick = onLeadClick)
+        }
+    }
+}
+
+@Composable
+private fun ZonasScreenPlaceholder() {
+    Box(Modifier.fillMaxSize().background(RadarColors.bg), contentAlignment = Alignment.Center) {
+        Text("ZONAS \u2014 en construcci\u00f3n", color = RadarColors.textDim, fontSize = 14.sp)
     }
 }
