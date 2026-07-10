@@ -74,6 +74,17 @@ class MainActivity : ComponentActivity() {
                         onRestaurarPlantillas = { vm.restaurarPlantillas() },
                         onRecalcularZonas = { modo, radio -> vm.recalcularZonas(modo, radio) },
                         onZonaARuta = { z -> vm.rutaDesdeZona(z) },
+                        onWhatsAppSeguimiento = { lead ->
+                            com.electromel.radar.ui.AccionesNativas.whatsapp(
+                                this@MainActivity, lead,
+                                com.electromel.radar.domain.Mensajes.build(lead, "seguimiento", state.mensajes))
+                            vm.registrarWhatsApp(lead.id, "seguimiento")
+                        },
+                        onPostergar = { id ->
+                            vm.postergarSeguimiento(id, 2)
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "Postergado +2 días", android.widget.Toast.LENGTH_SHORT).show()
+                        },
                         onCapturar = { nom, tipo, eq, tags, tel -> vm.capturarLead(nom, tipo, eq, tags, tel) },
                         onExportar = { formato, filtro ->
                             val leads = ExportEngine.filtrar(state.leads.map { it.lead }, filtro)

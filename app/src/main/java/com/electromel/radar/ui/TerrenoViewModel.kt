@@ -152,6 +152,30 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** HOY: posterga el seguimiento N días (port del botón +2 DÍAS). */
+    fun postergarSeguimiento(id: String, dias: Int = 2) {
+        val l = store.all().find { it.id == id } ?: return
+        val nueva = java.time.Instant.now()
+            .plus(dias.toLong(), java.time.temporal.ChronoUnit.DAYS).toString()
+        viewModelScope.launch {
+            store.upsert(l.copy(seguimientoFecha = nueva))
+            recomputar("Postergado +$dias días")
+        }
+    }
+
+    /** HOY/ficha: registra un envío de WhatsApp — port 1:1 de abrirWhatsApp():
+     *  no-contactado → contactado · intentos+1 · historial "WhatsApp {tipo}". */
+    fun registrarWhatsApp(id: String, tipo: String) {
+        val l = store.all().find { it.id == id } ?: return
+        val upd = l.copy(
+            estado = if (l.estado == "no-contactado") "contactado" else l.estado,
+            intentosContacto = l.intentosContacto + 1,
+            historial = l.historial + EventoHistorial(
+                java.time.Instant.now().toString(), "WhatsApp $tipo")
+        )
+        viewModelScope.launch { store.upsert(upd); recomputar() }
+    }
+
     /** MAPA CALOR: recalcula zonas con el modo y radio elegidos. */
     fun recalcularZonas(modo: ZonasEngine.Modo, radioM: Int) {
         val zs = ZonasEngine.calcular(store.all(), modo, radioM)
