@@ -29,11 +29,12 @@ fun ConfigScreen(
     zonasExtra: List<String>,
     mensajes: Map<String, Map<String, String>>,
     onGuardarApiKey: (String) -> Unit,
-    onAgregarZona: (String) -> Unit,
+    onAgregarZona: (String) -> Boolean,
     onQuitarZona: (String) -> Unit,
     onGuardarPlantillas: (rubro: String, primero: String, seguimiento: String, cierre: String) -> Unit,
     onRestaurarPlantillas: () -> Unit
 ) {
+    var confirmarRestaurar by remember { mutableStateOf(false) }
     var key by remember(googleKey) { mutableStateOf(googleKey) }
     var nuevaZona by remember { mutableStateOf("") }
     var rubroSel by remember { mutableStateOf("gimnasio") }
@@ -82,7 +83,7 @@ fun ConfigScreen(
             BuscarEngine.ZONAS_INDUSTRIALES.filter { it.isNotBlank() }.forEach { z ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 3.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text(z, color = RadarColors.text, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    Text(z, color = RadarColors.textDim, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     Text("(default)", color = RadarColors.textDim, fontSize = 10.sp)
                 }
             }
@@ -104,7 +105,7 @@ fun ConfigScreen(
                                      color = RadarColors.textDim, fontSize = 12.sp) },
                 modifier = Modifier.weight(1f), colors = campoColorsCfg(), singleLine = true)
             Button(onClick = {
-                    if (nuevaZona.isNotBlank()) { onAgregarZona(nuevaZona.trim().lowercase()); nuevaZona = "" }
+                    if (onAgregarZona(nuevaZona.trim().lowercase())) nuevaZona = ""
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = RadarColors.accent),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
@@ -153,10 +154,29 @@ fun ConfigScreen(
             Text("GUARDAR PLANTILLAS", color = RadarColors.bg, fontWeight = FontWeight.ExtraBold)
         }
         Spacer(Modifier.height(6.dp))
-        Button(onClick = onRestaurarPlantillas,
+        Button(onClick = { confirmarRestaurar = true },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = RadarColors.bgPanel)) {
             Text("RESTAURAR POR DEFECTO", color = RadarColors.text, fontWeight = FontWeight.Bold)
+        }
+
+        if (confirmarRestaurar) {
+            AlertDialog(
+                onDismissRequest = { confirmarRestaurar = false },
+                containerColor = RadarColors.bgCard,
+                title = { Text("¿Restaurar mensajes por defecto?",
+                               color = RadarColors.text, fontSize = 15.sp) },
+                confirmButton = {
+                    TextButton(onClick = { confirmarRestaurar = false; onRestaurarPlantillas() }) {
+                        Text("RESTAURAR", color = RadarColors.accent, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmarRestaurar = false }) {
+                        Text("Cancelar", color = RadarColors.textDim)
+                    }
+                }
+            )
         }
         Spacer(Modifier.height(20.dp))
     }

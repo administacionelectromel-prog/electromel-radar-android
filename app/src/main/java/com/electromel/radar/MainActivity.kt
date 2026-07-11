@@ -101,11 +101,22 @@ class MainActivity : ComponentActivity() {
                                     android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
                             }
                         },
-                        onGuardarApiKey = { k -> vm.guardarApiKey(k) },
-                        onAgregarZona = { z -> vm.agregarZona(z) },
-                        onQuitarZona = { z -> vm.quitarZona(z) },
-                        onGuardarPlantillas = { r, p1, p2, p3 -> vm.guardarPlantillas(r, p1, p2, p3) },
-                        onRestaurarPlantillas = { vm.restaurarPlantillas() },
+                        onGuardarApiKey = { k -> vm.guardarApiKey(k); toastCfg("API Key guardada ✓") },
+                        onAgregarZona = { z ->
+                            val todas = com.electromel.radar.domain.BuscarEngine
+                                .ZONAS_INDUSTRIALES.filter { it.isNotBlank() } + state.zonasExtra
+                            when {
+                                z.isBlank() -> { toastCfg("Escribí una zona"); false }
+                                z in todas -> { toastCfg("Zona ya existe"); false }
+                                else -> { vm.agregarZona(z); toastCfg("Zona agregada: " + z); true }
+                            }
+                        },
+                        onQuitarZona = { z -> vm.quitarZona(z); toastCfg("Zona eliminada") },
+                        onGuardarPlantillas = { r, p1, p2, p3 ->
+                            vm.guardarPlantillas(r, p1, p2, p3)
+                            toastCfg("Plantillas guardadas ✓")
+                        },
+                        onRestaurarPlantillas = { vm.restaurarPlantillas(); toastCfg("Mensajes restaurados") },
                         onRecalcularZonas = { modo, radio -> vm.recalcularZonas(modo, radio) },
                         onZonaARuta = { z ->
                             val n = vm.rutaDesdeZona(z)
@@ -228,6 +239,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun toastCfg(msg: String) {
+        android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show()
     }
 
     private fun arrancarGps(vm: TerrenoViewModel) {

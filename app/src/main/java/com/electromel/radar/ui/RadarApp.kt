@@ -40,7 +40,7 @@ fun RadarApp(
     onLimpiarRuta: () -> Unit,
     onIniciarRecorrido: () -> Unit,
     onGuardarApiKey: (String) -> Unit,
-    onAgregarZona: (String) -> Unit,
+    onAgregarZona: (String) -> Boolean,
     onQuitarZona: (String) -> Unit,
     onGuardarPlantillas: (String, String, String, String) -> Unit,
     onRestaurarPlantillas: () -> Unit,
