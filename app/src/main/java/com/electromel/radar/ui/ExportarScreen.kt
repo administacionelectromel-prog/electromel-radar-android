@@ -1,6 +1,7 @@
 package com.electromel.radar.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,13 +18,13 @@ import com.electromel.radar.domain.ExportEngine
 fun ExportarScreen(
     state: TerrenoState,
     onExportar: (formato: String, filtro: ExportEngine.Filtro) -> Unit,
-    onImportar: () -> Unit
+    onImportar: (merge: Boolean) -> Unit
 ) {
     var filtro by remember { mutableStateOf(ExportEngine.Filtro.TODOS) }
     val leadsFiltrados = ExportEngine.filtrar(state.leads.map { it.lead }, filtro)
 
     Column(Modifier.fillMaxSize().background(RadarColors.bg).padding(12.dp)) {
-        Text("⬇ EXPORTAR / IMPORTAR", color = RadarColors.accent, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+        Text("⬇ EXPORTAR DATOS", color = RadarColors.accent, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(12.dp))
 
         Text("¿QUÉ EXPORTAR?", color = RadarColors.textDim, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -47,20 +48,26 @@ fun ExportarScreen(
         Text("FORMATO", color = RadarColors.textDim, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            FormatoBtn("📦 JSON", "json", filtro, onExportar, Modifier.weight(1f))
-            FormatoBtn("📊 CSV", "csv", filtro, onExportar, Modifier.weight(1f))
-            FormatoBtn("📋 TXT", "txt", filtro, onExportar, Modifier.weight(1f))
+            FormatoBtn("📦", "JSON", "Backup completo, importable en otro dispositivo",
+                       "json", filtro, onExportar, Modifier.weight(1f))
+            FormatoBtn("📊", "CSV", "Excel / Google Sheets — una fila por lead",
+                       "csv", filtro, onExportar, Modifier.weight(1f))
+            FormatoBtn("📋", "TXT", "Lista de contactos: nombre + teléfono",
+                       "txt", filtro, onExportar, Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(20.dp))
         HorizontalDivider(color = RadarColors.border)
         Spacer(Modifier.height(16.dp))
 
-        Text("IMPORTAR", color = RadarColors.textDim, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text("IMPORTAR DATOS", color = RadarColors.textDim, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        Button(onClick = onImportar, modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = RadarColors.orange)) {
-            Text("⬇ IMPORTAR JSON DE LA PWA", fontWeight = FontWeight.Bold, color = RadarColors.bg)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            ImportBtn("🔀", "MERGE", "Agrega sin borrar", RadarColors.border,
+                      Modifier.weight(1f)) { onImportar(true) }
+            ImportBtn("♻️", "REEMPLAZAR", "Sobreescribe todo",
+                      RadarColors.red.copy(alpha = 0.5f),
+                      Modifier.weight(1f)) { onImportar(false) }
         }
     }
 }
@@ -76,10 +83,31 @@ private fun FiltroChip(label: String, activo: Boolean, modifier: Modifier, onCli
 }
 
 @Composable
-private fun FormatoBtn(label: String, formato: String, filtro: ExportEngine.Filtro,
+private fun FormatoBtn(ico: String, label: String, desc: String, formato: String,
+                       filtro: ExportEngine.Filtro,
                        onExportar: (String, ExportEngine.Filtro) -> Unit, modifier: Modifier) {
-    Button(onClick = { onExportar(formato, filtro) }, modifier = modifier,
-        colors = ButtonDefaults.buttonColors(containerColor = RadarColors.bgPanel)) {
-        Text(label, color = RadarColors.text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    Column(modifier.background(RadarColors.bgPanel, RoundedCornerShape(8.dp))
+        .clickable { onExportar(formato, filtro) }
+        .padding(horizontal = 6.dp, vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(ico, fontSize = 14.sp)
+        Text(label, color = RadarColors.text, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+        Text(desc, color = RadarColors.textDim, fontSize = 9.sp, lineHeight = 11.sp,
+             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}
+
+@Composable
+private fun ImportBtn(ico: String, label: String, desc: String,
+                      borde: androidx.compose.ui.graphics.Color,
+                      modifier: Modifier, onClick: () -> Unit) {
+    Column(modifier.background(RadarColors.bgPanel, RoundedCornerShape(8.dp))
+        .border(1.dp, borde, RoundedCornerShape(8.dp))
+        .clickable { onClick() }
+        .padding(horizontal = 6.dp, vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(ico, fontSize = 13.sp)
+        Text(label, color = RadarColors.text, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+        Text(desc, color = RadarColors.textDim, fontSize = 9.sp)
     }
 }

@@ -1,6 +1,7 @@
 package com.electromel.radar.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -8,9 +9,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,8 +35,10 @@ fun StatsScreen(
     onExportarAvanzado: () -> Unit,
     onExportarJson: () -> Unit,
     onImportar: () -> Unit,
-    onBorrarTodo: () -> Unit
+    onBorrarTodo: () -> Unit,
+    onRestaurar: (Long) -> Unit
 ) {
+    var restaurarId by remember { mutableStateOf<Long?>(null) }
     Column(Modifier.fillMaxSize().background(RadarColors.bg)
         .verticalScroll(rememberScrollState()).padding(12.dp)) {
 
@@ -145,6 +152,37 @@ fun StatsScreen(
             BtnSm("JSON completo", Modifier.weight(1f), onExportarJson)
             BtnSm("IMPORTAR", Modifier.weight(1f), onImportar)
         }
+
+        // lista-backups (port buildBackupsHTML): fecha+hora es-AR · N leads · AUTO/MANUAL · RESTAURAR
+        Spacer(Modifier.height(8.dp))
+        if (state.backups.isEmpty()) {
+            Text("Sin backups todavía.", color = RadarColors.textDim, fontSize = 11.sp)
+        } else {
+            state.backups.forEach { b ->
+                Row(Modifier.fillMaxWidth()
+                    .background(RadarColors.bgPanel, RoundedCornerShape(8.dp))
+                    .border(1.dp, RadarColors.border, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(fmtBackupFecha(b.fecha), color = RadarColors.text,
+                             fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("${b.cantLeads} leads · " +
+                             (if (b.tipo == "auto") "AUTO" else b.tipo.uppercase()),
+                             color = RadarColors.textDim, fontSize = 10.sp)
+                    }
+                    Box(Modifier.clip(RoundedCornerShape(6.dp))
+                        .background(RadarColors.bgCard)
+                        .border(1.dp, RadarColors.border, RoundedCornerShape(6.dp))
+                        .clickable { restaurarId = b.id }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)) {
+                        Text("RESTAURAR", color = RadarColors.text, fontSize = 10.sp,
+                             fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+            }
+        }
         Spacer(Modifier.height(12.dp))
         // Borrar todo (rojo, con confirmación)
         var confirmar by remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -153,7 +191,26 @@ fun StatsScreen(
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = RadarColors.red)
         ) { Text(if (confirmar) "¿SEGURO? TOCÁ DE NUEVO" else "BORRAR TODO", fontWeight = FontWeight.Bold) }
-        Spacer(Modifier.height(20.dp))
+    }
+
+    restaurarId?.let { rid ->
+        AlertDialog(
+            onDismissRequest = { restaurarId = null },
+            containerColor = RadarColors.bgCard,
+            title = { Text("¿Restaurar este backup?", color = RadarColors.text, fontSize = 15.sp) },
+            text = { Text("Se reemplazarán los datos actuales.",
+                          color = RadarColors.textDim, fontSize = 12.sp) },
+            confirmButton = {
+                TextButton(onClick = { onRestaurar(rid); restaurarId = null }) {
+                    Text("RESTAURAR", color = RadarColors.accent, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { restaurarId = null }) {
+                    Text("Cancelar", color = RadarColors.textDim)
+                }
+            }
+        )
     }
 }
 
@@ -203,3 +260,10 @@ private fun BtnSm(label: String, modifier: Modifier, onClick: () -> Unit) {
         Text(label, color = RadarColors.text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
+
+private fun fmtBackupFecha(iso: String): String = try {
+    val ms = java.time.Instant.parse(
+        if (iso.endsWith("Z") || iso.contains("+")) iso else iso + "Z").toEpochMilli()
+    java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale("es", "AR"))
+        .format(java.util.Date(ms))
+} catch (e: Exception) { iso.take(16) }

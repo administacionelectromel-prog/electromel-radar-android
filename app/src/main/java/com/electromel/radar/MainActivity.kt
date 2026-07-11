@@ -35,14 +35,15 @@ class MainActivity : ComponentActivity() {
                 val vm: TerrenoViewModel = viewModel()
                 val state by vm.state.collectAsState()
 
-                // Import de archivo
+                // Import de archivo (flag merge del modal MERGE/REEMPLAZAR)
+                var importMerge by remember { mutableStateOf(false) }
                 val picker = rememberLauncherForActivityResult(
                     ActivityResultContracts.GetContent()
                 ) { uri: Uri? ->
                     uri?.let {
                         val texto = contentResolver.openInputStream(it)
                             ?.bufferedReader()?.use { r -> r.readText() } ?: ""
-                        if (texto.isNotBlank()) vm.importarBackup(texto)
+                        if (texto.isNotBlank()) vm.importarBackup(texto, importMerge)
                     }
                 }
 
@@ -62,7 +63,7 @@ class MainActivity : ComponentActivity() {
                 Surface(color = RadarColors.bg) {
                     RadarApp(
                         state = state,
-                        onImportarClick = { picker.launch("application/json") },
+                        onImportarClick = { merge -> importMerge = merge; picker.launch("application/json") },
                         onLeadClick = { id -> vm.abrirLead(id) },
                         onCerrarLead = { vm.cerrarLead() },
                         onGuardarFicha = { lead ->
@@ -198,15 +199,15 @@ class MainActivity : ComponentActivity() {
                             this@MainActivity, msg, android.widget.Toast.LENGTH_SHORT).show() },
                         onGuardarResultado = { r -> vm.guardarResultado(r) },
                         onGuardarTodos = { vm.guardarTodosResultados() },
-                        onCampanaWhatsapp = {
-                            // Campaña: abre WhatsApp con el primer lead con teléfono pendiente
-                            val conTel = state.leads.map { it.lead }.firstOrNull {
-                                it.telefono.filter { c -> c.isDigit() }.length >= 6 &&
-                                it.estado == "no-contactado"
-                            }
-                            if (conTel != null)
-                                AccionesNativas.whatsapp(this@MainActivity, conTel,
-                                    com.electromel.radar.domain.Mensajes.build(conTel, "primero", state.mensajes))
+                        onEnviarCampana = { lead, tipo ->
+                            AccionesNativas.whatsapp(this@MainActivity, lead,
+                                com.electromel.radar.domain.Mensajes.build(lead, tipo, state.mensajes))
+                            vm.registrarEnvioCampana(lead.id, tipo)
+                        },
+                        onRestaurarBackup = { id ->
+                            vm.restaurarBackup(id)
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "Backup restaurado ✓", android.widget.Toast.LENGTH_SHORT).show()
                         },
                         onBorrarTodo = { vm.borrarTodo() }
                     )

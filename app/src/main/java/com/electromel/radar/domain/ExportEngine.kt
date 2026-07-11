@@ -14,7 +14,8 @@ object ExportEngine {
 
     enum class Filtro(val label: String) {
         TODOS("Todos"), CON_TEL("Con teléfono"), CLIENTES("Clientes"),
-        SIN_CONTACTAR("Sin contactar"), CON_COORDS("Con coordenadas")
+        SIN_CONTACTAR("Sin contactar"), ALTA("Prioridad alta"),
+        CON_COORDS("Con coordenadas")
     }
 
     fun filtrar(leads: List<Lead>, f: Filtro): List<Lead> = when (f) {
@@ -22,6 +23,7 @@ object ExportEngine {
         Filtro.CON_TEL       -> leads.filter { limpiarTel(it.telefono).length >= 6 }
         Filtro.CLIENTES      -> leads.filter { it.estado in listOf("cliente","recurrente","mantenimiento") }
         Filtro.SIN_CONTACTAR -> leads.filter { it.estado == "no-contactado" }
+        Filtro.ALTA          -> leads.filter { IutEngine.calcular(it) >= 45 }
         Filtro.CON_COORDS    -> leads.filter { it.lat != null && it.lon != null }
     }
 

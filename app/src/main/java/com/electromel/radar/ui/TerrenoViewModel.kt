@@ -14,6 +14,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.decodeFromJsonElement
 
 data class LeadUi(
     val lead: Lead,
@@ -46,6 +48,7 @@ data class TerrenoState(
     val buscando: Boolean = false,
     val buscarError: String = "",
     val buscarProgreso: String = "",
+    val backups: List<com.electromel.radar.data.BackupEntity> = emptyList(),
     val resultadosBusqueda: List<BuscarEngine.Resultado> = emptyList(),
     val zonasExtra: List<String> = emptyList()
 )
@@ -58,7 +61,7 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
 
     private val jsonCfg = Json { ignoreUnknownKeys = true }
     private val db = RadarDatabase.get(app)
-    private val store = LeadStore(db.leadDao(), db.configDao())
+    private val store = LeadStore(db.leadDao(), db.configDao(), db.backupDao())
     private val _state = MutableStateFlow(TerrenoState())
     val state: StateFlow<TerrenoState> = _state
 
@@ -66,6 +69,9 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             store.cargar()
             cargarConfig()
+            refrescarBackups()
+            recomputar()
+            backupAutoDiario()   // 1 por día, port del init de la PWA
             recomputar()
         }
     }
@@ -156,6 +162,76 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             store.setConfig("mensajes", jsonCfg.encodeToString<Map<String, Map<String, String>>>(Mensajes.DEFAULT))
             _state.value = _state.value.copy(mensajes = Mensajes.DEFAULT, mensaje = "Plantillas restauradas")
         }
+    }
+
+    /* ── BACKUPS (port crearBackup / restaurar / auto diario) ── */
+
+    private var backupsCache: List<com.electromel.radar.data.BackupEntity> = emptyList()
+
+    private suspend fun refrescarBackups() { backupsCache = store.backups(5) }
+
+    /** Port 1:1 de crearBackup(tipo): datos = JSON {version:6, leads, ruta, mensajes}. */
+    private suspend fun crearBackup(tipo: String) {
+        val s = _state.value
+        val datos = kotlinx.serialization.json.buildJsonObject {
+            put("version", kotlinx.serialization.json.JsonPrimitive(6))
+            put("fecha", kotlinx.serialization.json.JsonPrimitive(java.time.Instant.now().toString()))
+            put("tipo", kotlinx.serialization.json.JsonPrimitive(tipo))
+            put("leads", jsonCfg.encodeToJsonElement(
+                kotlinx.serialization.builtins.ListSerializer(Lead.serializer()),
+                store.all()))
+            put("ruta", jsonCfg.encodeToJsonElement(
+                kotlinx.serialization.builtins.ListSerializer(RutaEngine.Parada.serializer()),
+                s.ruta))
+            put("mensajes", jsonCfg.encodeToJsonElement(s.mensajes))
+        }.toString()
+        store.guardarBackup(java.time.Instant.now().toString(), tipo, datos, store.all().size)
+        refrescarBackups()
+    }
+
+    /** Backup automático — 1 por día al iniciar (port del init de la PWA). */
+    private suspend fun backupAutoDiario() {
+        val hoy = java.time.Instant.now().toString().take(10)
+        val ultima = store.getConfig("ultimoBackupFecha")
+        if (ultima != hoy && store.all().isNotEmpty()) {
+            crearBackup("auto")
+            store.setConfig("ultimoBackupFecha", hoy)
+        }
+    }
+
+    /** RESTAURAR — port del handler data-restore: reemplaza leads y mensajes. */
+    fun restaurarBackup(id: Long) {
+        viewModelScope.launch {
+            val b = store.backupPorId(id) ?: return@launch
+            try {
+                val root = kotlinx.serialization.json.Json.parseToJsonElement(b.datos)
+                    .let { it as kotlinx.serialization.json.JsonObject }
+                val leads = root["leads"]?.let {
+                    jsonCfg.decodeFromJsonElement(
+                        kotlinx.serialization.builtins.ListSerializer(Lead.serializer()), it)
+                } ?: emptyList()
+                store.clear()
+                leads.forEach { store.upsert(it) }
+                root["mensajes"]?.let { msj ->
+                    val m = jsonCfg.decodeFromJsonElement<Map<String, Map<String, String>>>(msj)
+                    _state.value = _state.value.copy(mensajes = m)
+                }
+                recomputar("Backup restaurado ✓")
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(mensaje = "Error restaurando: " + e.message)
+            }
+        }
+    }
+
+    /** CAMPAÑA WA — port de aplicarEnvioCampana: historial '(campaña)'. */
+    fun registrarEnvioCampana(id: String, tipo: String) {
+        val l = store.all().find { it.id == id } ?: return
+        val upd = l.copy(
+            estado = if (l.estado == "no-contactado") "contactado" else l.estado,
+            intentosContacto = l.intentosContacto + 1,
+            historial = l.historial + EventoHistorial(
+                java.time.Instant.now().toString(), "WhatsApp $tipo (campaña)"))
+        viewModelScope.launch { store.upsert(upd); recomputar() }
     }
 
     /** TERRENO ↺ REGENERAR — recalcula objetivos del día (renderArrancarDia). */
@@ -335,7 +411,9 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
     /** Borra TODOS los leads (con confirmación en la UI). */
     fun borrarTodo() {
         viewModelScope.launch {
+            crearBackup("pre-borrado")   // port: la PWA respalda antes de borrar
             store.clear()
+            _state.value = _state.value.copy(ruta = emptyList())
             recomputar("Todo borrado")
         }
     }
@@ -593,6 +671,7 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             userLat = prev.userLat,
             userLon = prev.userLon,
             leadSeleccionado = selRefrescado,
+            backups = backupsCache,
             objetivosDia = objetivos,
             diaSeguimientos = seguHoy,
             diaUrgentes = urgentes,

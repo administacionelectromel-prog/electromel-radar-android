@@ -8,7 +8,8 @@ import com.electromel.radar.domain.LeadRepository
  * y sincroniza con Room. La UI habla con este Store, nunca con el DAO
  * directo — misma barrera que el Store de la PWA.
  */
-class LeadStore(private val dao: LeadDao, private val configDao: ConfigDao) {
+class LeadStore(private val dao: LeadDao, private val configDao: ConfigDao,
+                private val backupDao: BackupDao? = null) {
 
     private val repo = LeadRepository()
 
@@ -59,6 +60,17 @@ class LeadStore(private val dao: LeadDao, private val configDao: ConfigDao) {
         repo.clear()
         dao.clear()
     }
+
+    /* ── Backups (port de DB.saveBackup / loadBackups / getBackupById) ── */
+    suspend fun guardarBackup(fecha: String, tipo: String, datos: String, cantLeads: Int) {
+        backupDao?.insertar(BackupEntity(fecha = fecha, tipo = tipo,
+            datos = datos, cantLeads = cantLeads))
+    }
+
+    suspend fun backups(n: Int = 5): List<BackupEntity> =
+        backupDao?.ultimos(n) ?: emptyList()
+
+    suspend fun backupPorId(id: Long): BackupEntity? = backupDao?.porId(id)
 
     // ── Configuración key-value ──
     suspend fun getConfig(): Map<String, String> =

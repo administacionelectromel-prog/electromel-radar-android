@@ -26,7 +26,7 @@ import androidx.compose.ui.zIndex
 @Composable
 fun RadarApp(
     state: TerrenoState,
-    onImportarClick: () -> Unit,
+    onImportarClick: (merge: Boolean) -> Unit,
     onLeadClick: (String) -> Unit,
     onCerrarLead: () -> Unit,
     onGuardarFicha: (com.electromel.radar.domain.Lead) -> Unit,
@@ -66,7 +66,8 @@ fun RadarApp(
     onAviso: (String) -> Unit,
     onGuardarResultado: (com.electromel.radar.domain.BuscarEngine.Resultado) -> Unit,
     onGuardarTodos: () -> Unit,
-    onCampanaWhatsapp: () -> Unit,
+    onEnviarCampana: (com.electromel.radar.domain.Lead, String) -> Unit,
+    onRestaurarBackup: (Long) -> Unit,
     onBorrarTodo: () -> Unit
 ) {
     var tab by remember { mutableStateOf(0) }   // arranca en TERRENO (mapa + lista)
@@ -75,6 +76,7 @@ fun RadarApp(
     var centrarPuntoTick by remember { mutableStateOf(0) }
     var mostrarCaptura by remember { mutableStateOf(false) }
     var mostrarExportar by remember { mutableStateOf(false) }
+    var mostrarCampana by remember { mutableStateOf(false) }
     var mapLeadsVisible by remember { mutableStateOf(true) }
     var busquedaRapida by remember { mutableStateOf("") }
 
@@ -144,10 +146,11 @@ fun RadarApp(
                 6 -> StatsScreen(
                         state = state,
                         onLeadClick = onLeadClick,
-                        onCampanaWhatsapp = onCampanaWhatsapp,
+                        onCampanaWhatsapp = { mostrarCampana = true },
+                        onRestaurar = onRestaurarBackup,
                         onExportarAvanzado = { mostrarExportar = true },
                         onExportarJson = { onExportar("json", com.electromel.radar.domain.ExportEngine.Filtro.TODOS) },
-                        onImportar = onImportarClick,
+                        onImportar = { mostrarExportar = true },   // btn-importar abre el modal (PWA)
                         onBorrarTodo = onBorrarTodo
                     )
                 7 -> ConfigScreen(
@@ -172,6 +175,15 @@ fun RadarApp(
             .navigationBarsPadding().padding(16.dp).zIndex(20f)
     ) { Text("+", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = RadarColors.bg) }
 
+    // Overlay de CAMPAÑA WHATSAPP (modal fullscreen como la PWA)
+    if (mostrarCampana) {
+        CampanaScreen(
+            state = state,
+            onEnviar = onEnviarCampana,
+            onCerrar = { mostrarCampana = false }
+        )
+    }
+
     // Overlay de EXPORTAR / SINCRONIZAR (modal como la PWA)
     if (mostrarExportar) {
         Box(Modifier.fillMaxSize().zIndex(30f).background(RadarColors.bg)
@@ -179,7 +191,7 @@ fun RadarApp(
             ExportarScreen(
                 state = state,
                 onExportar = { f, filtro -> onExportar(f, filtro); mostrarExportar = false },
-                onImportar = { onImportarClick(); mostrarExportar = false }
+                onImportar = { merge -> onImportarClick(merge); mostrarExportar = false }
             )
             Text("✕", color = RadarColors.textDim, fontSize = 22.sp,
                  fontWeight = FontWeight.Bold,
