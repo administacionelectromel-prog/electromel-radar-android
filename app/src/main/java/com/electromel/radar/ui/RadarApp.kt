@@ -51,6 +51,12 @@ fun RadarApp(
     onWhatsAppPrimero: (com.electromel.radar.domain.Lead) -> Unit,
     onMaps: (com.electromel.radar.domain.Lead) -> Unit,
     onAgregarARuta: (String) -> Unit,
+    onLlamar: (com.electromel.radar.domain.Lead) -> Unit,
+    onVisitado: (String) -> Unit,
+    onUrgente: (String) -> Unit,
+    onGuardarNota: (String, String) -> Unit,
+    onIniciarDia: () -> Unit,
+    onRegenerarDia: () -> Unit,
     onCapturar: (String, String, List<String>, List<String>, String) -> Unit,
     onExportar: (String, com.electromel.radar.domain.ExportEngine.Filtro) -> Unit,
     onBuscar: (String, String, Boolean) -> Unit,
@@ -65,6 +71,8 @@ fun RadarApp(
     var centrarPuntoTick by remember { mutableStateOf(0) }
     var mostrarCaptura by remember { mutableStateOf(false) }
     var mostrarExportar by remember { mutableStateOf(false) }
+    var mapLeadsVisible by remember { mutableStateOf(true) }
+    var busquedaRapida by remember { mutableStateOf("") }
 
     Box(Modifier.fillMaxSize().background(RadarColors.bg)) {
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -90,7 +98,12 @@ fun RadarApp(
 
         Box(Modifier.weight(1f)) {
             when (tab) {
-                0 -> TerrenoConMapa(state, centrarUser, centrarPunto, centrarPuntoTick, { centrarUser++ }, onImportarClick, onLeadClick)
+                0 -> TerrenoConMapa(state, centrarUser, centrarPunto, centrarPuntoTick,
+                        mapLeadsVisible, { centrarUser++ }, onLeadClick,
+                        onMaps, onWhatsAppPrimero, onLlamar, onVisitado, onUrgente,
+                        onGuardarNota, onAgregarARuta,
+                        onIniciarDiaNav = { onIniciarDia(); tab = 4 },
+                        onRegenerarDia = onRegenerarDia)
                 1 -> BuscarScreen(state = state, onBuscar = onBuscar, onGuardarResultado = onGuardarResultado, onGuardarTodos = onGuardarTodos)
                 2 -> LeadsScreen(state = state, onLeadClick = onLeadClick,
                         onWhatsAppPrimero = onWhatsAppPrimero,
@@ -223,9 +236,18 @@ private fun TerrenoConMapa(
     centrarUser: Int,
     centrarPunto: Pair<Double, Double>?,
     centrarPuntoTick: Int,
+    mostrarLeads: Boolean,
     onCentrar: () -> Unit,
-    onImportarClick: () -> Unit,
-    onLeadClick: (String) -> Unit
+    onLeadClick: (String) -> Unit,
+    onMaps: (com.electromel.radar.domain.Lead) -> Unit,
+    onWhatsAppPrimero: (com.electromel.radar.domain.Lead) -> Unit,
+    onLlamar: (com.electromel.radar.domain.Lead) -> Unit,
+    onVisitado: (String) -> Unit,
+    onUrgente: (String) -> Unit,
+    onGuardarNota: (String, String) -> Unit,
+    onAgregarARuta: (String) -> Unit,
+    onIniciarDiaNav: () -> Unit,
+    onRegenerarDia: () -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxWidth().weight(0.55f)) {
@@ -236,6 +258,7 @@ private fun TerrenoConMapa(
                 centrarEnUser = centrarUser,
                 centrarPunto = centrarPunto,
                 centrarPuntoTick = centrarPuntoTick,
+                mostrarLeads = mostrarLeads,
                 onLeadClick = onLeadClick,
                 modifier = Modifier.fillMaxSize()
             )
@@ -246,7 +269,11 @@ private fun TerrenoConMapa(
             ) { Text("\u25ce", fontSize = 22.sp) }
         }
         Box(Modifier.fillMaxWidth().weight(0.45f)) {
-            TerrenoScreen(state = state, onImportarClick = onImportarClick, onLeadClick = onLeadClick)
+            TerrenoScreen(state = state, onLeadClick = onLeadClick,
+                onMaps = onMaps, onWhatsAppPrimero = onWhatsAppPrimero,
+                onLlamar = onLlamar, onVisitado = onVisitado, onUrgente = onUrgente,
+                onGuardarNota = onGuardarNota, onAgregarARuta = onAgregarARuta,
+                onIniciarDia = onIniciarDiaNav, onRegenerarDia = onRegenerarDia)
         }
     }
 }

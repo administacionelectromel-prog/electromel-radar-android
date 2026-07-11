@@ -127,6 +127,35 @@ class MainActivity : ComponentActivity() {
                             url?.let { startActivity(android.content.Intent(
                                 android.content.Intent.ACTION_VIEW, android.net.Uri.parse(it))) }
                         },
+                        onLlamar = { lead ->
+                            val tel = lead.telefono.filter { it.isDigit() || it == '+' }
+                            if (tel.isNotEmpty()) startActivity(android.content.Intent(
+                                android.content.Intent.ACTION_DIAL,
+                                android.net.Uri.parse("tel:" + tel)))
+                        },
+                        onVisitado = { id ->
+                            vm.marcarVisitado(id)
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "✓ Marcado como visitado", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        onUrgente = { id ->
+                            vm.marcarUrgente(id)
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "🚨 Marcado como URGENTE", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        onGuardarNota = { id, nota ->
+                            vm.guardarNotaRapida(id, nota)
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "Nota guardada ✓", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        onIniciarDia = {
+                            vm.generarRuta()
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "✓ Ruta del día: " + state.objetivosDia.size +
+                                " objetivos optimizados",
+                                android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        onRegenerarDia = { vm.refrescar() },
                         onAgregarARuta = { id ->
                             val dup = state.ruta.any { it.leadId == id }
                             vm.agregarLeadARuta(id)

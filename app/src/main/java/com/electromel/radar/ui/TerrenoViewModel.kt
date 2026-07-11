@@ -157,6 +157,37 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** TERRENO ↺ REGENERAR — recalcula objetivos del día (renderArrancarDia). */
+    fun refrescar() { viewModelScope.launch { recomputar() } }
+
+    /** TERRENO ✅ — port de data-ta=visitado. */
+    fun marcarVisitado(id: String) {
+        val l = store.all().find { it.id == id } ?: return
+        val upd = l.copy(
+            estado = "visitado",
+            intentosContacto = l.intentosContacto + 1,
+            historial = l.historial + EventoHistorial(
+                java.time.Instant.now().toString(), "Visitado en terreno"))
+        viewModelScope.launch { store.upsert(upd); recomputar("✓ Marcado como visitado") }
+    }
+
+    /** TERRENO 🚨 — port de data-ta=urgente (estado + tag). */
+    fun marcarUrgente(id: String) {
+        val l = store.all().find { it.id == id } ?: return
+        val upd = l.copy(estado = "urgente", tags = l.tags + "urgente")
+        viewModelScope.launch { store.upsert(upd); recomputar("🚨 Marcado como URGENTE") }
+    }
+
+    /** TERRENO 📝 — port de nq-guardar: notas + historial 'Nota: …40'. */
+    fun guardarNotaRapida(id: String, nota: String) {
+        val l = store.all().find { it.id == id } ?: return
+        val upd = l.copy(
+            notas = nota.trim(),
+            historial = l.historial + EventoHistorial(
+                java.time.Instant.now().toString(), "Nota: " + nota.trim().take(40)))
+        viewModelScope.launch { store.upsert(upd); recomputar("Nota guardada ✓") }
+    }
+
     /** FICHA GUARDAR — port de construirLeadActualizado + m-guardar:
      *  historial += 'Lead actualizado', persiste, recomputa. */
     fun guardarFicha(actualizado: Lead) {

@@ -26,6 +26,7 @@ fun MapaView(
     centrarEnUser: Int,          // se incrementa para pedir "centrar en mi ubicación"
     centrarPunto: Pair<Double, Double>? = null,  // punto arbitrario (MAPA de zonas)
     centrarPuntoTick: Int = 0,   // se incrementa para pedir el centrado
+    mostrarLeads: Boolean = true,  // toggle 📍 del top-bar (mapLeadsVisible)
     onLeadClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -55,7 +56,7 @@ fun MapaView(
         map.overlays.clear()
 
         // Marcadores de leads
-        for (item in leads) {
+        if (mostrarLeads) for (item in leads) {
             val lat = item.lead.lat ?: continue
             val lon = item.lead.lon ?: continue
             val marker = Marker(map).apply {
