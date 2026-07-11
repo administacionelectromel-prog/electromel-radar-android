@@ -107,7 +107,21 @@ class MainActivity : ComponentActivity() {
                         onGuardarPlantillas = { r, p1, p2, p3 -> vm.guardarPlantillas(r, p1, p2, p3) },
                         onRestaurarPlantillas = { vm.restaurarPlantillas() },
                         onRecalcularZonas = { modo, radio -> vm.recalcularZonas(modo, radio) },
-                        onZonaARuta = { z -> vm.rutaDesdeZona(z) },
+                        onZonaARuta = { z ->
+                            val n = vm.rutaDesdeZona(z)
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "$n paradas agregadas", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        onZonaARutaDetalle = { z ->
+                            val n = vm.rutaDesdeZona(z)
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "$n agregados", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        onRecalcularZonasManual = { m, r ->
+                            vm.recalcularZonas(m, r)
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "Zonas recalculadas", android.widget.Toast.LENGTH_SHORT).show()
+                        },
                         onWhatsAppSeguimiento = { lead ->
                             com.electromel.radar.ui.AccionesNativas.whatsapp(
                                 this@MainActivity, lead,

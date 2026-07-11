@@ -329,7 +329,7 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** +RUTA desde una zona — port 1:1: AGREGA con dedup por leadId. */
-    fun rutaDesdeZona(zona: ZonasEngine.Zona) {
+    fun rutaDesdeZona(zona: ZonasEngine.Zona): Int {
         var n = 0
         var ruta = _state.value.ruta
         for (l in zona.leads) {
@@ -340,8 +340,9 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
                 n++
             }
         }
-        _state.value = _state.value.copy(ruta = ruta, mensaje = "$n paradas agregadas")
+        _state.value = _state.value.copy(ruta = ruta)
         guardarRuta(ruta)
+        return n
     }
 
     /** Agrega un lead a la ruta — port 1:1 de agregarLeadARuta (dedup+toast). */

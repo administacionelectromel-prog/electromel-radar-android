@@ -30,13 +30,26 @@ import com.electromel.radar.domain.ZonasEngine
 fun ZonasScreen(
     state: TerrenoState,
     onRecalcular: (ZonasEngine.Modo, Int) -> Unit,
+    onRecalcularManual: (ZonasEngine.Modo, Int) -> Unit,
     onLeadClick: (String) -> Unit,
     onZonaARuta: (ZonasEngine.Zona) -> Unit,
+    onZonaARutaDetalle: (ZonasEngine.Zona) -> Unit,
     onVerEnMapa: (Double, Double) -> Unit
 ) {
     var modo by remember { mutableStateOf(state.zonasModo) }
     var radio by remember { mutableStateOf(state.zonasRadio.toFloat()) }
     var detalleDe by remember { mutableStateOf<String?>(null) }
+
+    // ── DETALLE INLINE: reemplaza la lista (port renderDetalleZona) ──
+    val zonaDetalle = detalleDe?.let { d -> state.zonas.find { it.nombre == d } }
+    if (zonaDetalle != null) {
+        DetalleZona(zonaDetalle,
+            onVolver = { detalleDe = null },
+            onRutaTodo = { onZonaARutaDetalle(zonaDetalle) },
+            onVerMapa = { onVerEnMapa(zonaDetalle.latCentro, zonaDetalle.lonCentro) },
+            onLeadClick = onLeadClick)
+        return
+    }
 
     Column(Modifier.fillMaxSize().background(RadarColors.bg).padding(12.dp)) {
 
@@ -59,15 +72,17 @@ fun ZonasScreen(
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             ModoOpcion("Por cercanía (radio)", modo == ZonasEngine.Modo.AUTO, Modifier.weight(1f)) {
-                modo = ZonasEngine.Modo.AUTO
+                modo = ZonasEngine.Modo.AUTO; detalleDe = null
+                onRecalcular(modo, radio.toInt())
             }
             ModoOpcion("Por zona / barrio", modo == ZonasEngine.Modo.BARRIO, Modifier.weight(1f)) {
-                modo = ZonasEngine.Modo.BARRIO
+                modo = ZonasEngine.Modo.BARRIO; detalleDe = null
+                onRecalcular(modo, radio.toInt())
             }
         }
 
-        // Radio (solo en modo auto, como el original)
-        if (modo == ZonasEngine.Modo.AUTO) {
+        // Radio (visible siempre, literal de la PWA)
+        run {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Radio: ", color = RadarColors.textDim, fontSize = 11.sp)
@@ -77,6 +92,7 @@ fun ZonasScreen(
             }
             Slider(
                 value = radio, onValueChange = { radio = it },
+                onValueChangeFinished = { detalleDe = null; onRecalcular(modo, radio.toInt()) },
                 valueRange = 200f..3000f, steps = 27,   // pasos de 100 m
                 colors = SliderDefaults.colors(
                     thumbColor = RadarColors.orange,
@@ -88,7 +104,7 @@ fun ZonasScreen(
 
         Spacer(Modifier.height(4.dp))
         Button(
-            onClick = { detalleDe = null; onRecalcular(modo, radio.toInt()) },
+            onClick = { detalleDe = null; onRecalcularManual(modo, radio.toInt()) },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = RadarColors.bgPanel)
         ) { Text("RECALCULAR ZONAS", color = RadarColors.text, fontWeight = FontWeight.Bold) }
@@ -105,11 +121,9 @@ fun ZonasScreen(
                 items(state.zonas, key = { it.nombre + it.leads.size }) { z ->
                     ZonaCard(
                         z = z, scoreMax = scoreMax,
-                        expandida = detalleDe == z.nombre,
-                        onVer = { detalleDe = if (detalleDe == z.nombre) null else z.nombre },
+                        onVer = { detalleDe = z.nombre },
                         onRuta = { onZonaARuta(z) },
-                        onMapa = { onVerEnMapa(z.latCentro, z.lonCentro) },
-                        onLeadClick = onLeadClick
+                        onMapa = { onVerEnMapa(z.latCentro, z.lonCentro) }
                     )
                 }
             }
@@ -133,9 +147,8 @@ private fun ModoOpcion(label: String, activo: Boolean, modifier: Modifier, onCli
 
 @Composable
 private fun ZonaCard(
-    z: ZonasEngine.Zona, scoreMax: Int, expandida: Boolean,
-    onVer: () -> Unit, onRuta: () -> Unit, onMapa: () -> Unit,
-    onLeadClick: (String) -> Unit
+    z: ZonasEngine.Zona, scoreMax: Int,
+    onVer: () -> Unit, onRuta: () -> Unit, onMapa: () -> Unit
 ) {
     val tempColor = when (z.temp) {
         "hot" -> RadarColors.red
@@ -176,7 +189,7 @@ private fun ZonaCard(
         Box(Modifier.fillMaxWidth().height(5.dp)
             .background(RadarColors.border, RoundedCornerShape(3.dp))) {
             Box(Modifier.fillMaxWidth(barPct).fillMaxHeight()
-                .background(tempColor, RoundedCornerShape(3.dp)))
+                .background(RadarColors.orange, RoundedCornerShape(3.dp)))
         }
 
         Spacer(Modifier.height(6.dp))
@@ -189,28 +202,11 @@ private fun ZonaCard(
 
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            BtnZona(if (expandida) "OCULTAR" else "VER", RadarColors.bgPanel, RadarColors.text, onVer)
+            BtnZona("VER", RadarColors.bgPanel, RadarColors.text, onVer)
             BtnZona("+RUTA", RadarColors.orange, RadarColors.bg, onRuta)
             BtnZona("MAPA", RadarColors.bgPanel, RadarColors.text, onMapa)
         }
 
-        // Detalle: leads de la zona (VER)
-        if (expandida) {
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider(color = RadarColors.border)
-            z.leads.take(20).forEach { l ->
-                Row(Modifier.fillMaxWidth()
-                    .clickable { onLeadClick(l.id) }
-                    .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text(l.nombre, color = RadarColors.text, fontSize = 12.sp,
-                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    Text(l.estado, color = RadarColors.textDim, fontSize = 10.sp)
-                }
-            }
-            if (z.leads.size > 20)
-                Text("… y ${z.leads.size - 20} más", color = RadarColors.textDim, fontSize = 10.sp)
-        }
     }
 }
 
@@ -230,5 +226,79 @@ private fun BtnZona(label: String, bg: Color, fg: Color, onClick: () -> Unit) {
         .clickable { onClick() }
         .padding(horizontal = 12.dp, vertical = 6.dp)) {
         Text(label, color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/* ── DETALLE DE ZONA — port 1:1 de renderDetalleZona() ── */
+@Composable
+private fun DetalleZona(
+    z: ZonasEngine.Zona,
+    onVolver: () -> Unit,
+    onRutaTodo: () -> Unit,
+    onVerMapa: () -> Unit,
+    onLeadClick: (String) -> Unit
+) {
+    val ico = when (z.temp) { "hot" -> "🔥"; "warm" -> "🌡️"; else -> "❄️" }
+    val iutAvg = if (z.leads.isNotEmpty()) Math.round(z.iutTotal.toDouble() / z.leads.size) else 0
+
+    Column(Modifier.fillMaxSize().background(RadarColors.bg).padding(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            BtnZona("← VOLVER", RadarColors.bgPanel, RadarColors.text, onVolver)
+            Column {
+                Text("$ico ${z.nombre}", color = RadarColors.text, fontSize = 15.sp,
+                     fontWeight = FontWeight.ExtraBold, maxLines = 1,
+                     overflow = TextOverflow.Ellipsis)
+                Text("${z.leads.size} lead(s) · IUT avg $iutAvg",
+                     color = RadarColors.textDim, fontSize = 11.sp)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
+                .background(RadarColors.orange)
+                .clickable { onRutaTodo() }.padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center) {
+                Text("+RUTA TODO", color = RadarColors.bg, fontSize = 11.sp,
+                     fontWeight = FontWeight.ExtraBold)
+            }
+            Box(Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
+                .background(RadarColors.bgPanel)
+                .border(1.dp, RadarColors.border, RoundedCornerShape(6.dp))
+                .clickable { onVerMapa() }.padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center) {
+                Text("VER MAPA", color = RadarColors.text, fontSize = 11.sp,
+                     fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+
+        // dz-leads: seg-cards (nombre + IUT badge, dirección, click → ficha)
+        androidx.compose.foundation.lazy.LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(z.leads.size) { i ->
+                val l = z.leads[i]
+                val iut = com.electromel.radar.domain.IutEngine.calcular(l)
+                Column(Modifier.fillMaxWidth()
+                    .background(RadarColors.bgPanel, RoundedCornerShape(8.dp))
+                    .border(1.dp, RadarColors.border, RoundedCornerShape(8.dp))
+                    .clickable { onLeadClick(l.id) }
+                    .padding(horizontal = 12.dp, vertical = 10.dp)) {
+                    Row(Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text(l.nombre, color = RadarColors.text, fontSize = 13.sp,
+                             fontWeight = FontWeight.Bold, maxLines = 1,
+                             overflow = TextOverflow.Ellipsis,
+                             modifier = Modifier.weight(1f, false))
+                        Spacer(Modifier.width(6.dp))
+                        IutBadge(iut)
+                    }
+                    if (l.direccion.isNotBlank())
+                        Text(l.direccion, color = RadarColors.textDim, fontSize = 11.sp,
+                             maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
     }
 }

@@ -45,6 +45,8 @@ fun RadarApp(
     onGuardarPlantillas: (String, String, String, String) -> Unit,
     onRestaurarPlantillas: () -> Unit,
     onRecalcularZonas: (com.electromel.radar.domain.ZonasEngine.Modo, Int) -> Unit,
+    onRecalcularZonasManual: (com.electromel.radar.domain.ZonasEngine.Modo, Int) -> Unit,
+    onZonaARutaDetalle: (com.electromel.radar.domain.ZonasEngine.Zona) -> Unit,
     onZonaARuta: (com.electromel.radar.domain.ZonasEngine.Zona) -> Unit,
     onWhatsAppSeguimiento: (com.electromel.radar.domain.Lead) -> Unit,
     onPostergar: (String) -> Unit,
@@ -137,8 +139,10 @@ fun RadarApp(
                 5 -> ZonasScreen(
                         state = state,
                         onRecalcular = onRecalcularZonas,
+                        onRecalcularManual = onRecalcularZonasManual,
+                        onZonaARutaDetalle = onZonaARutaDetalle,
                         onLeadClick = onLeadClick,
-                        onZonaARuta = { z -> onZonaARuta(z); tab = 4 },
+                        onZonaARuta = { z -> onZonaARuta(z) },   // la PWA se queda en ZONAS
                         onVerEnMapa = { lat, lon ->
                             centrarPunto = lat to lon; centrarPuntoTick++; tab = 0
                         }
