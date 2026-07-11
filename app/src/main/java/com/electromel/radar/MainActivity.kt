@@ -65,7 +65,26 @@ class MainActivity : ComponentActivity() {
                         onImportarClick = { picker.launch("application/json") },
                         onLeadClick = { id -> vm.abrirLead(id) },
                         onCerrarLead = { vm.cerrarLead() },
-                        onCambiarEstado = { id, estado -> vm.cambiarEstado(id, estado) },
+                        onGuardarFicha = { lead ->
+                            vm.guardarFicha(lead); vm.cerrarLead()
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "Lead actualizado ✓", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        onEliminarLead = { id ->
+                            vm.eliminarLead(id); vm.cerrarLead()
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "Lead eliminado", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        onAgregarFoto = { id, dataUrl ->
+                            vm.agregarFotoLead(id, dataUrl)
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "Foto guardada ✓", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        onQuitarFoto = { id, idx ->
+                            vm.quitarFotoLead(id, idx)
+                            android.widget.Toast.makeText(this@MainActivity,
+                                "Foto eliminada", android.widget.Toast.LENGTH_SHORT).show()
+                        },
                         onGenerarRuta = { vm.generarRuta() },
                         onAgregarManual = { t -> vm.agregarParadaManual(t) },
                         onMoverParada = { i, d -> vm.moverParada(i, d) },

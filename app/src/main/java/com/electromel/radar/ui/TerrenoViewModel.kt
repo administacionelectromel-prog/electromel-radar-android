@@ -157,6 +157,39 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** FICHA GUARDAR — port de construirLeadActualizado + m-guardar:
+     *  historial += 'Lead actualizado', persiste, recomputa. */
+    fun guardarFicha(actualizado: Lead) {
+        val upd = actualizado.copy(
+            historial = actualizado.historial + EventoHistorial(
+                java.time.Instant.now().toString(), "Lead actualizado"))
+        viewModelScope.launch { store.upsert(upd); recomputar("Lead actualizado ✓") }
+    }
+
+    /** FICHA ELIMINAR — port de m-eliminar: borrado real. */
+    fun eliminarLead(id: String) {
+        viewModelScope.launch { store.remove(id); recomputar("Lead eliminado") }
+    }
+
+    /** FICHA FOTO — guarda inmediato (port del handler m-foto-input). */
+    fun agregarFotoLead(id: String, dataUrl: String) {
+        val l = store.all().find { it.id == id } ?: return
+        viewModelScope.launch {
+            store.upsert(l.copy(fotos = l.fotos + dataUrl))
+            recomputar("Foto guardada ✓")
+        }
+    }
+
+    /** FICHA FOTO ✕ — port del handler foto-del. */
+    fun quitarFotoLead(id: String, idx: Int) {
+        val l = store.all().find { it.id == id } ?: return
+        if (idx !in l.fotos.indices) return
+        viewModelScope.launch {
+            store.upsert(l.copy(fotos = l.fotos.filterIndexed { i, _ -> i != idx }))
+            recomputar("Foto eliminada")
+        }
+    }
+
     /** HOY: posterga el seguimiento N días (port del botón +2 DÍAS). */
     fun postergarSeguimiento(id: String, dias: Int = 2) {
         val l = store.all().find { it.id == id } ?: return

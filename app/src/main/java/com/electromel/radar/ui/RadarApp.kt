@@ -29,7 +29,10 @@ fun RadarApp(
     onImportarClick: () -> Unit,
     onLeadClick: (String) -> Unit,
     onCerrarLead: () -> Unit,
-    onCambiarEstado: (String, String) -> Unit,
+    onGuardarFicha: (com.electromel.radar.domain.Lead) -> Unit,
+    onEliminarLead: (String) -> Unit,
+    onAgregarFoto: (String, String) -> Unit,
+    onQuitarFoto: (String, Int) -> Unit,
     onGenerarRuta: () -> Unit,   // lo consumirá el panel ARRANCAR DÍA (loop TERRENO)
     onAgregarManual: (String) -> Unit,
     onMoverParada: (Int, Int) -> Unit,
@@ -184,7 +187,14 @@ fun RadarApp(
             item = sel,
             mensajes = state.mensajes,
             onCerrar = onCerrarLead,
-            onCambiarEstado = { nuevo -> onCambiarEstado(sel.lead.id, nuevo) }
+            onGuardar = onGuardarFicha,
+            onEliminar = onEliminarLead,
+            onAgregarFoto = onAgregarFoto,
+            onQuitarFoto = onQuitarFoto,
+            onMaps = onMaps,
+            onAgregarARuta = onAgregarARuta,
+            onWhatsAppPrimero = onWhatsAppPrimero,
+            onWhatsAppSeguimiento = onWhatsAppSeguimiento
         )
     }
     }
