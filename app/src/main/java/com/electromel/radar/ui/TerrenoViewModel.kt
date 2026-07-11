@@ -45,6 +45,7 @@ data class TerrenoState(
     val zonasRadio: Int = 800,
     val buscando: Boolean = false,
     val buscarError: String = "",
+    val buscarProgreso: String = "",
     val resultadosBusqueda: List<BuscarEngine.Resultado> = emptyList(),
     val zonasExtra: List<String> = emptyList()
 )
@@ -340,29 +341,139 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Busca negocios (OSM + opcional Google) en IO, sin bloquear la UI. */
-    fun buscar(ciudad: String, rubro: String, usarGoogle: Boolean) {
-        _state.value = _state.value.copy(buscando = true, buscarError = "", resultadosBusqueda = emptyList())
+    @Volatile private var buscarCancelado = false
+
+    /** ⏹ FRENAR — port de btn-frenar. */
+    fun frenarBusqueda() { buscarCancelado = true }
+
+    /** BUSCAR OBJETIVOS — port 1:1 de btn-buscar + buscarMultiZona:
+     *  multi-rubro × ciudad, dedup global (googleId/osmId/nombre+dir20),
+     *  progreso por zona (solo Google es multi-zona; OSM 1 llamada),
+     *  orden iut desc → rating desc, corte por errores > total/2. */
+    fun buscar(ciudad: String, rubros: List<String>, fuente: String) {
+        if (rubros.isEmpty() || ciudad.isBlank()) return
+        buscarCancelado = false
+        val tsInicio = System.currentTimeMillis()
+        _state.value = _state.value.copy(
+            buscando = true, buscarError = "", resultadosBusqueda = emptyList(),
+            buscarProgreso = "Iniciando radar · ${rubros.size} rubro(s) × 1 ciudad(es) = " +
+                "${rubros.size} campañas...")
+
         viewModelScope.launch {
-            try {
-                val resultados = withContext(Dispatchers.IO) {
-                    val geo = BuscarEngine.geocodar(ciudad)
-                    val osm = BuscarEngine.buscarOsm(rubro, geo)
-                    val google = if (usarGoogle && _state.value.googleKey.isNotBlank())
-                        BuscarEngine.buscarGooglePorZonas(rubro, ciudad, _state.value.googleKey, _state.value.zonasExtra)
-                    else emptyList()
-                    val fusion = BuscarEngine.fusionar(osm, google)
-                    BuscarEngine.filtrarPorRadio(fusion, geo)  // descarta lejanos
+            val idsGlobales = mutableSetOf<String>()
+            var acumulados = listOf<BuscarEngine.Resultado>()
+            var rubroActual = 0
+
+            for (rubro in rubros) {
+                if (buscarCancelado) break
+                rubroActual++
+                try {
+                    val parciales = withContext(Dispatchers.IO) {
+                        if (fuente == "google" && _state.value.googleKey.isNotBlank()) {
+                            val queries = BuscarEngine.generarConsultas(
+                                ciudad, rubro, _state.value.zonasExtra)
+                            val acc = mutableListOf<BuscarEngine.Resultado>()
+                            var errores = 0
+                            for ((i, q) in queries.withIndex()) {
+                                if (buscarCancelado) break
+                                val elapsed = (System.currentTimeMillis() - tsInicio) / 1000
+                                val restante = if (i > 0)
+                                    (elapsed.toDouble() / i * (queries.size - i)).toInt() else 0
+                                _state.value = _state.value.copy(buscarProgreso =
+                                    "$rubro ($rubroActual/${rubros.size}) · $ciudad" +
+                                    " · Zona ${i + 1}/${queries.size}" +
+                                    " · ${acumulados.size + acc.size} únicos" +
+                                    (if (restante > 0) " · ~${restante}s" else "") +
+                                    "\n→ $q")
+                                try {
+                                    acc += BuscarEngine.buscarGoogle(q, _state.value.googleKey)
+                                } catch (e: Exception) {
+                                    errores++
+                                    if (errores > queries.size / 2) break
+                                }
+                                if (i < queries.size - 1) kotlinx.coroutines.delay(800)
+                            }
+                            acc
+                        } else {
+                            _state.value = _state.value.copy(buscarProgreso =
+                                "$rubro ($rubroActual/${rubros.size}) · $ciudad · Zona 1/1" +
+                                " · ${acumulados.size} únicos")
+                            val geo = BuscarEngine.geocodar(ciudad)
+                            BuscarEngine.buscarOsm(rubro, geo)
+                        }
+                    }
+
+                    // IUT + rubro detectado + dedup global (port exacto)
+                    val conIut = parciales.map { r ->
+                        r.copy(iut = IutEngine.calcular(BuscarEngine.aLead(
+                            r, "tmp", java.time.Instant.now().toString())))
+                    }
+                    val nuevos = conIut.filter { r ->
+                        val id = r.googleId ?: r.osmId?.toString()
+                        if (id != null && id in idsGlobales) return@filter false
+                        val k = IutEngine.normalizar(r.nombre) + "|" +
+                            IutEngine.normalizar(r.direccion).take(20)
+                        if (k in idsGlobales) return@filter false
+                        if (id != null) idsGlobales.add(id)
+                        idsGlobales.add(k)
+                        true
+                    }
+                    acumulados = (acumulados + nuevos).sortedWith(
+                        compareByDescending<BuscarEngine.Resultado> { it.iut }
+                            .thenByDescending { it.rating ?: 0.0 })
+                    _state.value = _state.value.copy(resultadosBusqueda = acumulados)
+                } catch (e: Exception) {
+                    // port: console.warn y sigue con el próximo rubro
                 }
-                // Filtrar los que ya son leads (por osmId/googleId/nombre)
-                val nuevos = resultados.filter {
-                    store.encontrarExistente(it.googleId, it.osmId, it.nombre, it.direccion) == null
-                }
-                _state.value = _state.value.copy(buscando = false, resultadosBusqueda = nuevos,
-                    buscarError = if (nuevos.isEmpty()) "Sin resultados nuevos para \"$rubro\" en $ciudad" else "")
-            } catch (e: Exception) {
-                _state.value = _state.value.copy(buscando = false,
-                    buscarError = "Error: ${e.message ?: "sin conexión"}")
             }
+
+            // Resumen final (textos exactos)
+            val elapsed = (System.currentTimeMillis() - tsInicio) / 1000
+            val fin = if (acumulados.isNotEmpty())
+                "✓ ${acumulados.size} objetivos únicos · ${rubros.size} rubro(s)" +
+                " · ${elapsed}s · " + (if (fuente == "google") "Google" else "OSM")
+            else "Sin resultados. Probá con otros rubros o ciudad."
+            buscarCancelado = false
+            _state.value = _state.value.copy(buscando = false, buscarProgreso = fin)
+
+            // Enriquecer teléfonos en background (port lanzarEnriquecimiento)
+            if (fuente == "google" && acumulados.any { it.googleId != null }) {
+                launch(Dispatchers.IO) {
+                    for (r in acumulados) {
+                        val gid = r.googleId ?: continue
+                        if (r.telefono.isNotBlank()) continue
+                        val tel = BuscarEngine.detallesTelefono(gid, _state.value.googleKey)
+                            ?: continue
+                        _state.value = _state.value.copy(
+                            resultadosBusqueda = _state.value.resultadosBusqueda.map {
+                                if (it.googleId == gid) it.copy(telefono = tel) else it
+                            })
+                        kotlinx.coroutines.delay(250)
+                    }
+                }
+            }
+        }
+    }
+
+    /** WA desde resultado — port data-rc-wa: guarda si no existe y devuelve el lead. */
+    fun waDesdeResultado(r: BuscarEngine.Resultado): Lead {
+        val existente = encontrarLeadDe(r)
+        if (existente != null) return existente
+        val lead = BuscarEngine.aLead(r, java.util.UUID.randomUUID().toString(),
+            java.time.Instant.now().toString())
+        viewModelScope.launch { store.upsert(lead); recomputar() }
+        return lead
+    }
+
+    /** Port de encontrarLeadExistente: googleId → osmId → nombre+dir20. */
+    fun encontrarLeadDe(r: BuscarEngine.Resultado): Lead? {
+        val todos = store.all()
+        r.googleId?.let { g -> todos.find { it.googleId == g }?.let { return it } }
+        r.osmId?.let { o -> todos.find { it.osmId == o }?.let { return it } }
+        val k = IutEngine.normalizar(r.nombre) + "|" + IutEngine.normalizar(r.direccion).take(20)
+        return todos.find {
+            IutEngine.normalizar(it.nombre) + "|" +
+                IutEngine.normalizar(it.direccion).take(20) == k
         }
     }
 
@@ -372,25 +483,20 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
             java.time.Instant.now().toString())
         viewModelScope.launch {
             store.upsert(lead)
-            // Quitar de resultados (ya guardado) y recomputar
-            _state.value = _state.value.copy(
-                resultadosBusqueda = _state.value.resultadosBusqueda.filter { it !== r }
-            )
-            recomputar("Guardado: " + lead.nombre)
+            recomputar("✓ Lead guardado")   // la card queda visible en ✓ GUARDADO
         }
     }
 
     /** Guarda TODOS los resultados de búsqueda de una (menos toques). */
     fun guardarTodosResultados() {
-        val resultados = _state.value.resultadosBusqueda
-        if (resultados.isEmpty()) return
+        val nuevos = _state.value.resultadosBusqueda.filter { encontrarLeadDe(it) == null }
+        if (nuevos.isEmpty()) return
         viewModelScope.launch {
             val ahora = java.time.Instant.now().toString()
-            resultados.forEach { r ->
+            nuevos.forEach { r ->
                 store.upsert(BuscarEngine.aLead(r, java.util.UUID.randomUUID().toString(), ahora))
             }
-            _state.value = _state.value.copy(resultadosBusqueda = emptyList())
-            recomputar("Guardados ${resultados.size} leads")
+            recomputar("✓ ${'$'}{nuevos.size} leads guardados")
         }
     }
 

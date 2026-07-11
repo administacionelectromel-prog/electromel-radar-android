@@ -15,6 +15,14 @@ import org.json.JSONObject
  */
 object BuscarEngine {
 
+    /** Port 1:1 de const CIUDADES_ZONA (autosuggest de ciudad). */
+    val CIUDADES_ZONA = listOf(
+        "Neuquén", "Cipolletti", "Plottier", "Centenario", "Senillosa",
+        "Vista Alegre", "General Roca", "Allen", "Fernández Oro",
+        "San Martín de los Andes", "Junín de los Andes",
+        "Villa La Angostura", "Bariloche", "Dina Huapi")
+
+
     private val OVERPASS_SERVERS = listOf(
         "https://overpass-api.de/api/interpreter",
         "https://overpass.kumi.systems/api/interpreter",
@@ -54,10 +62,21 @@ object BuscarEngine {
         return base.take(12)  // MAX_CONSULTAS
     }
 
+    /** Port 1:1 de generarConsultas: zona vacía → 'rubro ciudad Argentina';
+     *  con zona → 'rubro ciudad zona'. Máx 12. */
+    fun generarConsultas(ciudad: String, rubro: String,
+                         zonasExtra: List<String>): List<String> =
+        generarZonas(rubro, zonasExtra).map { zona ->
+            (if (zona.isBlank()) "$rubro $ciudad Argentina"
+             else "$rubro $ciudad $zona").trim()
+        }
+
     data class Resultado(
+        val iut: Int = 0,
         val nombre: String, val lat: Double, val lon: Double,
         val tipo: String = "", val telefono: String = "", val direccion: String = "",
-        val fuente: String = "osm", val osmId: Long? = null, val googleId: String? = null
+        val fuente: String = "osm", val osmId: Long? = null, val googleId: String? = null,
+        val rating: Double? = null
     )
 
     data class Geo(val lat: Double, val lon: Double,
@@ -191,10 +210,28 @@ object BuscarEngine {
                 lat = loc.getDouble("lat"), lon = loc.getDouble("lng"),
                 tipo = r.optJSONArray("types")?.optString(0) ?: "",
                 direccion = r.optString("formatted_address", ""),
-                fuente = "google", googleId = r.optString("place_id").ifBlank { null }
+                fuente = "google", googleId = r.optString("place_id").ifBlank { null },
+                rating = if (r.has("rating")) r.optDouble("rating") else null
             ))
         }
         return out
+    }
+
+    // Cache de Place Details (port de _detailsCache)
+    private val detailsCache = HashMap<String, String>()
+
+    /** Port de enriquecerConTelefonos: Place Details → teléfono (con cache). */
+    fun detallesTelefono(placeId: String, apiKey: String): String? {
+        detailsCache[placeId]?.let { return it.ifBlank { null } }
+        return try {
+            val url = "https://maps.googleapis.com/maps/api/place/details/json?place_id=" +
+                HttpClient.encode(placeId) + "&fields=formatted_phone_number&key=" + apiKey
+            val json = JSONObject(HttpClient.get(url))
+            val tel = json.optJSONObject("result")
+                ?.optString("formatted_phone_number", "") ?: ""
+            detailsCache[placeId] = tel
+            tel.ifBlank { null }
+        } catch (e: Exception) { null }
     }
 
     /** Descarta resultados fuera del radio útil de la ciudad (evita lejanos). */

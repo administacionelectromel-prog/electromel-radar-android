@@ -177,7 +177,25 @@ class MainActivity : ComponentActivity() {
                             }
                             ExportShare.compartir(this@MainActivity, contenido, archivo, mime)
                         },
-                        onBuscar = { ciudad, rubro, google -> vm.buscar(ciudad, rubro, google) },
+                        onBuscar = { ciudad, rubros, fuente -> vm.buscar(ciudad, rubros, fuente) },
+                        onFrenar = { vm.frenarBusqueda() },
+                        onMapsResultado = { r ->
+                            val url = com.electromel.radar.domain.RutaEngine.urlRecorrido(listOf(
+                                com.electromel.radar.domain.RutaEngine.Parada(
+                                    id = "res", nombre = r.nombre, direccion = r.direccion,
+                                    lat = r.lat, lon = r.lon)))
+                            url?.let { startActivity(android.content.Intent(
+                                android.content.Intent.ACTION_VIEW, android.net.Uri.parse(it))) }
+                        },
+                        onWaResultado = { r ->
+                            val lead = vm.waDesdeResultado(r)
+                            com.electromel.radar.ui.AccionesNativas.whatsapp(
+                                this@MainActivity, lead,
+                                com.electromel.radar.domain.Mensajes.build(lead, "primero", state.mensajes))
+                            vm.registrarWhatsApp(lead.id, "primero")
+                        },
+                        onAviso = { msg -> android.widget.Toast.makeText(
+                            this@MainActivity, msg, android.widget.Toast.LENGTH_SHORT).show() },
                         onGuardarResultado = { r -> vm.guardarResultado(r) },
                         onGuardarTodos = { vm.guardarTodosResultados() },
                         onCampanaWhatsapp = {
