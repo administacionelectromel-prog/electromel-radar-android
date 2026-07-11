@@ -23,6 +23,7 @@ data class LeadUi(
 
 data class TerrenoState(
     val leads: List<LeadUi> = emptyList(),
+    val leadsTodos: List<LeadUi> = emptyList(),   // incluye descartados (LEADS filtro 'todos')
     val cargando: Boolean = true,
     val mensaje: String = "",
     val userLat: Double? = null,
@@ -388,10 +389,10 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun recomputar(msg: String = "") {
         val ahora = System.currentTimeMillis()
-        val ui = store.all()
-            .filter { it.estado != "descartado" }
+        val uiTodos = store.all()
             .map { LeadUi(it, IutEngine.calcular(it), PrioridadEngine.calcular(it, ahora)) }
             .sortedWith(compareBy<LeadUi> { it.prioridad.nivel.ordinal }.thenByDescending { it.iut })
+        val ui = uiTodos.filter { it.lead.estado != "descartado" }
         val prev = _state.value
 
         // Objetivos del día (DiaEngine) + resumen
@@ -417,6 +418,7 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
         }
         _state.value = TerrenoState(
             leads = ui,
+            leadsTodos = uiTodos,
             cargando = false,
             userLat = prev.userLat,
             userLon = prev.userLon,

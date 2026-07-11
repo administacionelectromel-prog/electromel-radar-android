@@ -94,6 +94,26 @@ class MainActivity : ComponentActivity() {
                                 com.electromel.radar.domain.Mensajes.build(lead, "seguimiento", state.mensajes))
                             vm.registrarWhatsApp(lead.id, "seguimiento")
                         },
+                        onWhatsAppPrimero = { lead ->
+                            com.electromel.radar.ui.AccionesNativas.whatsapp(
+                                this@MainActivity, lead,
+                                com.electromel.radar.domain.Mensajes.build(lead, "primero", state.mensajes))
+                            vm.registrarWhatsApp(lead.id, "primero")
+                        },
+                        onMaps = { lead ->
+                            val url = com.electromel.radar.domain.RutaEngine.urlRecorrido(listOf(
+                                com.electromel.radar.domain.RutaEngine.Parada(
+                                    id = lead.id, nombre = lead.nombre,
+                                    direccion = lead.direccion, lat = lead.lat, lon = lead.lon)))
+                            url?.let { startActivity(android.content.Intent(
+                                android.content.Intent.ACTION_VIEW, android.net.Uri.parse(it))) }
+                        },
+                        onAgregarARuta = { id ->
+                            val dup = state.ruta.any { it.leadId == id }
+                            vm.agregarLeadARuta(id)
+                            if (dup) android.widget.Toast.makeText(this@MainActivity,
+                                "Ya está en la ruta", android.widget.Toast.LENGTH_SHORT).show()
+                        },
                         onPostergar = { id ->
                             vm.postergarSeguimiento(id, 2)
                             android.widget.Toast.makeText(this@MainActivity,

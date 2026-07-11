@@ -45,6 +45,9 @@ fun RadarApp(
     onZonaARuta: (com.electromel.radar.domain.ZonasEngine.Zona) -> Unit,
     onWhatsAppSeguimiento: (com.electromel.radar.domain.Lead) -> Unit,
     onPostergar: (String) -> Unit,
+    onWhatsAppPrimero: (com.electromel.radar.domain.Lead) -> Unit,
+    onMaps: (com.electromel.radar.domain.Lead) -> Unit,
+    onAgregarARuta: (String) -> Unit,
     onCapturar: (String, String, List<String>, List<String>, String) -> Unit,
     onExportar: (String, com.electromel.radar.domain.ExportEngine.Filtro) -> Unit,
     onBuscar: (String, String, Boolean) -> Unit,
@@ -86,7 +89,10 @@ fun RadarApp(
             when (tab) {
                 0 -> TerrenoConMapa(state, centrarUser, centrarPunto, centrarPuntoTick, { centrarUser++ }, onImportarClick, onLeadClick)
                 1 -> BuscarScreen(state = state, onBuscar = onBuscar, onGuardarResultado = onGuardarResultado, onGuardarTodos = onGuardarTodos)
-                2 -> LeadsScreen(state = state, onLeadClick = onLeadClick)
+                2 -> LeadsScreen(state = state, onLeadClick = onLeadClick,
+                        onWhatsAppPrimero = onWhatsAppPrimero,
+                        onMaps = onMaps,
+                        onAgregarARuta = onAgregarARuta)
                 3 -> HoyScreen(state = state, onLeadClick = onLeadClick,
                         onWhatsAppSeguimiento = onWhatsAppSeguimiento,
                         onPostergar = onPostergar)
