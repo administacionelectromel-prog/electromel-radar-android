@@ -192,7 +192,7 @@ class TerrenoViewModel(app: Application) : AndroidViewModel(app) {
     /** Backup automático — 1 por día al iniciar (port del init de la PWA). */
     private suspend fun backupAutoDiario() {
         val hoy = java.time.Instant.now().toString().take(10)
-        val ultima = store.getConfig("ultimoBackupFecha")
+        val ultima = store.getConfig()["ultimoBackupFecha"]
         if (ultima != hoy && store.all().isNotEmpty()) {
             crearBackup("auto")
             store.setConfig("ultimoBackupFecha", hoy)

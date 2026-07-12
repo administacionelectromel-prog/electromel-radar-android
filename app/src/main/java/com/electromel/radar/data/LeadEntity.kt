@@ -69,6 +69,7 @@ data class LeadEntity(
             googleId = l.googleId, osmId = l.osmId, rating = l.rating,
             intentosContacto = l.intentosContacto, cicloMantenimiento = l.cicloMantenimiento,
             seguimientoFecha = l.seguimientoFecha, creado = l.creado,
+            fotosJson = JSON.encodeToString<List<String>>(l.fotos),
             historialJson = JSON.encodeToString<List<EventoHistorial>>(l.historial)
         )
     }
